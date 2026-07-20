@@ -1,0 +1,498 @@
+// ==========================================================================
+// AgroLink Honduras Marketplace — Prisma Schema (Fase 2: Diseño de Base de Datos)
+// PostgreSQL + Prisma ORM
+// ==========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------------------------
+// ENUMS
+// --------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  SELLER
+  BUYER
+}
+
+enum VerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  INACTIVE
+}
+
+enum ProductUnit {
+  UNIT
+  LB
+  KG
+  QQ // quintal
+  BOX
+  BAG
+  LITER
+}
+
+enum CartStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  DELIVERED
+  CANCELLED
+}
+
+enum ReviewModerationStatus {
+  APPROVED
+  PENDING_REVIEW
+  REJECTED
+}
+
+enum ReportTargetType {
+  PRODUCT
+  SELLER
+  REVIEW
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  NEW_ORDER
+  ORDER_ACCEPTED
+  ORDER_CANCELLED
+  SELLER_APPROVED
+  SELLER_REJECTED
+  NEW_REVIEW
+  REPORT_RECEIVED
+  PAYMENT_UPDATE
+}
+
+enum PaymentProvider {
+  PAYPAL
+  CREDIT_CARD
+  DEBIT_CARD
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// --------------------------------------------------------------------------
+// CATÁLOGOS GEOGRÁFICOS (Honduras)
+// --------------------------------------------------------------------------
+
+model Department {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  code          String         @unique
+  municipalities Municipality[]
+  locations     Location[]
+  createdAt     DateTime       @default(now())
+
+  @@map("departments")
+}
+
+model Municipality {
+  id           String     @id @default(uuid())
+  name         String
+  code         String     @unique
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  locations    Location[]
+  createdAt    DateTime   @default(now())
+
+  @@index([departmentId])
+  @@map("municipalities")
+}
+
+model Location {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  departmentId   String
+  department     Department    @relation(fields: [departmentId], references: [id])
+  municipalityId String
+  municipality   Municipality  @relation(fields: [municipalityId], references: [id])
+  address        String
+  latitude       Decimal       @db.Decimal(9, 6)
+  longitude      Decimal       @db.Decimal(9, 6)
+  isPrimary      Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([departmentId, municipalityId])
+  @@map("locations")
+}
+
+// --------------------------------------------------------------------------
+// USUARIOS E IDENTIDAD
+// --------------------------------------------------------------------------
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  phone        String?
+  passwordHash String
+  role         UserRole
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  sellerProfile SellerProfile?
+  locations     Location[]
+  carts         Cart[]
+  favorites     Favorite[]
+  ordersAsBuyer Order[]        @relation("BuyerOrders")
+  reviews       Review[]
+  reports       Report[]       @relation("ReporterReports")
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model SellerProfile {
+  id                 String              @id @default(uuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id])
+  businessName       String
+  dni                String              @unique
+  verificationStatus VerificationStatus  @default(PENDING)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  suspendedReason    String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  identityVerification IdentityVerification?
+  products             Product[]
+  ordersAsSeller       Order[]               @relation("SellerOrders")
+  reviewsReceived      Review[]              @relation("SellerReviews")
+
+  @@index([verificationStatus])
+  @@map("seller_profiles")
+}
+
+model IdentityVerification {
+  id              String             @id @default(uuid())
+  sellerProfileId String             @unique
+  sellerProfile   SellerProfile      @relation(fields: [sellerProfileId], references: [id])
+  dniFrontUrl     String
+  dniBackUrl      String
+  selfieUrl       String
+  lifeProofUrl    String
+  status          VerificationStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  notes           String?
+  createdAt       DateTime           @default(now())
+
+  @@map("identity_verifications")
+}
+
+// --------------------------------------------------------------------------
+// CATÁLOGO Y PRODUCTOS
+// --------------------------------------------------------------------------
+
+model Category {
+  id       String     @id @default(uuid())
+  name     String
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  isActive Boolean    @default(true)
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String        @id @default(uuid())
+  sellerId     String
+  seller       SellerProfile @relation(fields: [sellerId], references: [id])
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id])
+  name         String
+  description  String
+  price        Decimal       @db.Decimal(10, 2)
+  unit         ProductUnit
+  stock        Int           @default(0)
+  status       ProductStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  images     ProductImage[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  favorites  Favorite[]
+  reviews    Review[]
+
+  @@index([sellerId])
+  @@index([categoryId, status])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+// --------------------------------------------------------------------------
+// CARRITO Y FAVORITOS
+// --------------------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  status    CartStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items CartItem[]
+
+  @@index([userId, status])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  sellerId  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("favorites")
+}
+
+// --------------------------------------------------------------------------
+// PEDIDOS (SOLICITUD DE COMPRA)
+// --------------------------------------------------------------------------
+
+model Order {
+  id           String        @id @default(uuid())
+  buyerId      String
+  buyer        User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  sellerId     String
+  seller       SellerProfile @relation("SellerOrders", fields: [sellerId], references: [id])
+  status       OrderStatus   @default(PENDING)
+  totalAmount  Decimal       @db.Decimal(10, 2)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  confirmedAt  DateTime?
+  deliveredAt  DateTime?
+  cancelledAt  DateTime?
+
+  items       OrderItem[]
+  review      Review?
+  transaction Transaction?
+
+  @@index([buyerId])
+  @@index([sellerId, status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// --------------------------------------------------------------------------
+// REVIEWS Y REPUTACIÓN
+// --------------------------------------------------------------------------
+
+model Review {
+  id                   String                  @id @default(uuid())
+  orderId              String                  @unique
+  order                Order                   @relation(fields: [orderId], references: [id])
+  buyerId              String
+  buyer                User                    @relation(fields: [buyerId], references: [id])
+  sellerId             String
+  seller               SellerProfile           @relation("SellerReviews", fields: [sellerId], references: [id])
+  productId            String
+  product              Product                 @relation(fields: [productId], references: [id])
+  qualityScore         Int
+  responseTimeScore    Int
+  complianceScore      Int
+  attentionScore       Int
+  trustScore           Int
+  comment              String?
+  moderationStatus     ReviewModerationStatus  @default(PENDING_REVIEW)
+  createdAt            DateTime                @default(now())
+
+  @@index([sellerId])
+  @@index([productId])
+  @@map("reviews")
+}
+
+// --------------------------------------------------------------------------
+// REPORTES
+// --------------------------------------------------------------------------
+
+model Report {
+  id         String           @id @default(uuid())
+  reporterId String
+  reporter   User             @relation("ReporterReports", fields: [reporterId], references: [id])
+  targetType ReportTargetType
+  targetId   String
+  reason     String
+  status     ReportStatus     @default(PENDING)
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  resolvedBy String?
+
+  @@index([targetType, targetId])
+  @@index([status])
+  @@map("reports")
+}
+
+// --------------------------------------------------------------------------
+// NOTIFICACIONES
+// --------------------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// --------------------------------------------------------------------------
+// PAGOS (PREPARACIÓN — SIN COBRO REAL EN EL MVP)
+// --------------------------------------------------------------------------
+
+model PaymentMethod {
+  id        String          @id @default(uuid())
+  name      String
+  provider  PaymentProvider
+  isActive  Boolean         @default(true)
+  config    Json?
+  createdAt DateTime        @default(now())
+
+  transactions Transaction[]
+
+  @@map("payment_methods")
+}
+
+model Transaction {
+  id                  String            @id @default(uuid())
+  orderId             String            @unique
+  order               Order             @relation(fields: [orderId], references: [id])
+  paymentMethodId     String
+  paymentMethod       PaymentMethod     @relation(fields: [paymentMethodId], references: [id])
+  amount              Decimal           @db.Decimal(10, 2)
+  commissionAmount    Decimal           @db.Decimal(10, 2)
+  commissionPercentage Decimal          @db.Decimal(5, 2)
+  status              TransactionStatus @default(PENDING)
+  externalReference   String?
+  createdAt           DateTime          @default(now())
+  completedAt         DateTime?
+
+  @@index([paymentMethodId])
+  @@index([status])
+  @@map("transactions")
+}
+
+model CommissionConfig {
+  id             String    @id @default(uuid())
+  percentage     Decimal   @db.Decimal(5, 2)
+  effectiveFrom  DateTime  @default(now())
+  effectiveTo    DateTime?
+  isActive       Boolean   @default(true)
+  createdBy      String
+
+  @@map("commission_configs")
+}
+
+// --------------------------------------------------------------------------
+// AUDITORÍA
+// --------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}

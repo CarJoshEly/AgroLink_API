@@ -1,0 +1,42 @@
+# ==========================================================================
+# AgroLink Honduras — .gitignore
+# ==========================================================================
+
+# Dependencias
+node_modules/
+package-lock.json
+
+# Build
+dist/
+build/
+
+# Variables de entorno
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Tests
+coverage/
+.nyc_output/
+
+# Prisma
+prisma/migrations/
+
+# Temporal
+tmp/
+temp/
