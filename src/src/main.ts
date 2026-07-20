@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger, VersioningType } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -27,15 +27,17 @@ async function bootstrap() {
   // ─── Compresión ──────────────────────────────────────────────
   app.use(compression());
 
-  // ─── Prefijo global (/api/v1) ────────────────────────────────
+  // ─── Prefijo global + versionado (/api/v1) ───────────────────
+  // Nota: usamos un prefijo fijo "api/v1" en vez de VersioningType.URI
+  // de NestJS para evitar que ambos mecanismos se combinen y generen
+  // rutas duplicadas (ej. /api/v1/v1/...) cuando los controladores
+  // definan su propia versión. Si en el futuro se necesitan múltiples
+  // versiones activas simultáneamente (v1 y v2), migrar a
+  // app.enableVersioning({ type: VersioningType.URI }) y quitar la
+  // versión fija del prefijo.
   const apiPrefix = process.env.API_PREFIX || 'api';
   const apiVersion = process.env.API_VERSION || 'v1';
   app.setGlobalPrefix(`${apiPrefix}/${apiVersion}`);
-
-  // ─── Versionado de API ───────────────────────────────────────
-  app.enableVersioning({
-    type: VersioningType.URI,
-  });
 
   // ─── Validaciones globales ───────────────────────────────────
   app.useGlobalPipes(
@@ -63,7 +65,7 @@ async function bootstrap() {
   });
 
   // ─── Iniciar servidor ────────────────────────────────────────
-  const port = parseInt(process.env.PORT ?? '3000', 10) || 3000
+  const port = parseInt(process.env.PORT ?? '3000', 10) || 3000;
   await app.listen(port);
 
   logger.log(`🌿 =========================================`);
