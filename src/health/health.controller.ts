@@ -8,8 +8,10 @@ import {
 } from '@nestjs/terminus';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../database';
+import { Public } from '../common/decorators';
 
 @ApiTags('Health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

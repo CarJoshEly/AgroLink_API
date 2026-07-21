@@ -38,3 +38,9 @@ export const DEFAULT_REQUEST_TIMEOUT = 30000;
 
 /** Número de rondas para bcrypt */
 export const BCRYPT_SALT_ROUNDS = 12;
+
+/** Vigencia del token de verificación de correo (24 horas) */
+export const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Vigencia del token de recuperación de contraseña (1 hora) */
+export const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;

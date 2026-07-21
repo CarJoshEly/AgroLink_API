@@ -55,6 +55,6 @@ export class PaginationDto {
    * Calcula el offset para Prisma skip
    */
   get skip(): number {
-    return (this.page - 1) * this.limit;
+    return ((this.page ?? 1) - 1) * (this.limit ?? 10);
   }
 }

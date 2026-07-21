@@ -6,6 +6,15 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+/** Modelos con columna deletedAt — nunca se eliminan físicamente. */
+const SOFT_DELETE_MODELS = [
+  'user',
+  'product',
+  'sellerProfile',
+  'productReview',
+  'sellerReview',
+] as const;
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -34,48 +43,47 @@ export class PrismaService
     await this.$connect();
     this.logger.log('✅ Conexión a PostgreSQL establecida correctamente');
 
-    // Soft Delete Middleware — Filtra registros eliminados automáticamente
-    this.$use(async (params, next) => {
-      // Aplicar soft delete para modelos con campo deletedAt
-      const modelsWithSoftDelete = ['User', 'Product'];
+    // Soft Delete — Filtra registros eliminados automáticamente y convierte
+    // delete/deleteMany en update/updateMany. `$use` (client middleware) fue
+    // retirado del tipado del cliente de Prisma; se reemplaza por
+    // extensiones (`$extends`), reasignando únicamente los delegados de los
+    // modelos con soft delete sobre esta misma instancia.
+    const queryConfig: Record<string, unknown> = {};
+    const modelConfig: Record<string, unknown> = {};
 
-      if (modelsWithSoftDelete.includes(params.model)) {
-        // Interceptar DELETE para convertirlo en soft delete
-        if (params.action === 'delete') {
-          params.action = 'update';
-          params.args['data'] = { deletedAt: new Date() };
-        }
-
-        if (params.action === 'deleteMany') {
-          params.action = 'updateMany';
-          if (params.args.data !== undefined) {
-            params.args.data['deletedAt'] = new Date();
-          } else {
-            params.args['data'] = { deletedAt: new Date() };
+    for (const model of SOFT_DELETE_MODELS) {
+      queryConfig[model] = {
+        async findUnique({ args, query }: any) {
+          return query({ ...args, where: { ...args.where, deletedAt: null } });
+        },
+        async findFirst({ args, query }: any) {
+          return query({ ...args, where: { ...args.where, deletedAt: null } });
+        },
+        async findMany({ args, query }: any) {
+          if (args.where?.deletedAt === undefined) {
+            args = { ...args, where: { ...args.where, deletedAt: null } };
           }
-        }
+          return query(args);
+        },
+      };
+      modelConfig[model] = {
+        async delete({ where }: any) {
+          return (this as any).update({ where, data: { deletedAt: new Date() } });
+        },
+        async deleteMany({ where }: any) {
+          return (this as any).updateMany({ where, data: { deletedAt: new Date() } });
+        },
+      };
+    }
 
-        // Filtrar registros soft-deleted en consultas
-        if (params.action === 'findUnique' || params.action === 'findFirst') {
-          params.action = 'findFirst';
-          if (params.args.where) {
-            params.args.where['deletedAt'] = null;
-          }
-        }
+    const extended = this.$extends({
+      query: queryConfig,
+      model: modelConfig,
+    } as any);
 
-        if (params.action === 'findMany') {
-          if (params.args.where) {
-            if (params.args.where.deletedAt === undefined) {
-              params.args.where['deletedAt'] = null;
-            }
-          } else {
-            params.args['where'] = { deletedAt: null };
-          }
-        }
-      }
-
-      return next(params);
-    });
+    for (const model of SOFT_DELETE_MODELS) {
+      (this as any)[model] = (extended as any)[model];
+    }
   }
 
   async onModuleDestroy() {

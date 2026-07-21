@@ -4,11 +4,27 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Configuración
-import { appConfig, databaseConfig } from './config';
+import { appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig } from './config';
 
 // Módulos
 import { DatabaseModule } from './database';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './auth';
+import { MailModule } from './mail';
+import { StorageModule } from './storage';
+import { UsersModule } from './users';
+import { GoogleMapsModule } from './google-maps';
+import { LocationsModule } from './locations';
+import { CategoriesModule } from './categories';
+import { ProductsModule } from './products';
+import { InventoryModule } from './inventory';
+import { OrdersModule } from './orders';
+import { CartModule } from './cart';
+import { ReviewsModule } from './reviews';
+import { FavoritesModule } from './favorites';
+import { ReportsModule } from './reports';
+import { NotificationsModule } from './notifications';
+import { FinanceModule } from './finance';
 
 // Filtros
 import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
@@ -23,27 +39,66 @@ import {
 // Middleware
 import { LoggerMiddleware } from './common/middleware';
 
+// Guards
+import { JwtAuthGuard, RolesGuard } from './common/guards';
+
 @Module({
   imports: [
     // Configuración global de variables de entorno
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig],
+      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig],
     }),
 
     // Rate Limiting global
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: parseInt(process.env.THROTTLE_TTL, 10) || 60000,
-          limit: parseInt(process.env.THROTTLE_LIMIT, 10) || 100,
+          ttl: parseInt(process.env.THROTTLE_TTL || '', 10) || 60000,
+          limit: parseInt(process.env.THROTTLE_LIMIT || '', 10) || 100,
         },
       ],
     }),
 
     // Módulo de base de datos (global)
     DatabaseModule,
+
+    // Correo (global)
+    MailModule,
+
+    // Almacenamiento de archivos (global)
+    StorageModule,
+
+    // Google Maps (global)
+    GoogleMapsModule,
+
+    // Notificaciones (global)
+    NotificationsModule,
+
+    // Autenticación y autorización
+    AuthModule,
+
+    // Usuarios y verificación de vendedores
+    UsersModule,
+
+    // Ubicación y geolocalización
+    LocationsModule,
+
+    // Categorías y productos (Marketplace)
+    CategoriesModule,
+    ProductsModule,
+    InventoryModule,
+    OrdersModule,
+    CartModule,
+
+    // Interacción social: reseñas, favoritos, reportes
+    ReviewsModule,
+    FavoritesModule,
+    ReportsModule,
+
+    // Arquitectura financiera (métodos de pago, comisiones, transacciones)
+    FinanceModule,
 
     // Health checks
     HealthModule,
@@ -63,6 +118,18 @@ import { LoggerMiddleware } from './common/middleware';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    // Guard global de autenticación JWT (bypass con @Public())
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+
+    // Guard global de autorización por rol (@Roles(...))
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
 
     // Interceptores globales

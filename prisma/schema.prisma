@@ -3,13 +3,14 @@
 // PostgreSQL + Prisma ORM
 // ==========================================================================
 
-generator client {
-  provider = "prisma-client-js"
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+generator client {
+  provider = "prisma-client-js"
 }
 
 // --------------------------------------------------------------------------
@@ -19,7 +20,7 @@ datasource db {
 enum UserRole {
   ADMIN
   SELLER
-  BUYER
+  CUSTOMER
 }
 
 enum VerificationStatus {
@@ -70,6 +71,8 @@ enum ReportTargetType {
   PRODUCT
   SELLER
   REVIEW
+  PRODUCT_REVIEW
+  SELLER_REVIEW
 }
 
 enum ReportStatus {
@@ -83,8 +86,11 @@ enum NotificationType {
   NEW_ORDER
   ORDER_ACCEPTED
   ORDER_CANCELLED
+  ORDER_PREPARING
+  ORDER_DELIVERED
   SELLER_APPROVED
   SELLER_REJECTED
+  SELLER_SUSPENDED
   NEW_REVIEW
   REPORT_RECEIVED
   PAYMENT_UPDATE
@@ -102,6 +108,12 @@ enum TransactionStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+enum InventoryMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
 }
 
 // --------------------------------------------------------------------------
@@ -161,6 +173,7 @@ model User {
   name         String
   email        String     @unique
   phone        String?
+  avatarUrl    String?
   passwordHash String
   role         UserRole
   isActive     Boolean    @default(true)
@@ -168,17 +181,42 @@ model User {
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
+  emailVerifiedAt            DateTime?
+  emailVerificationToken     String?   @unique
+  emailVerificationExpiresAt DateTime?
+  passwordResetToken         String?   @unique
+  passwordResetExpiresAt     DateTime?
+
   sellerProfile SellerProfile?
   locations     Location[]
   carts         Cart[]
   favorites     Favorite[]
   ordersAsBuyer Order[]        @relation("BuyerOrders")
-  reviews       Review[]
+  productReviews ProductReview[]
+  sellerReviews  SellerReview[]
   reports       Report[]       @relation("ReporterReports")
   notifications Notification[]
   auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+  inventoryMovements InventoryMovement[]
+  orderStatusChanges OrderStatusHistory[]
 
   @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model SellerProfile {
@@ -193,11 +231,13 @@ model SellerProfile {
   suspendedReason    String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
 
   identityVerification IdentityVerification?
   products             Product[]
   ordersAsSeller       Order[]               @relation("SellerOrders")
-  reviewsReceived      Review[]              @relation("SellerReviews")
+  reviews              SellerReview[]
+  favoritedBy          Favorite[]
 
   @@index([verificationStatus])
   @@map("seller_profiles")
@@ -234,6 +274,7 @@ model Category {
   isActive Boolean    @default(true)
   products Product[]
 
+  @@index([parentId])
   @@map("categories")
 }
 
@@ -253,15 +294,33 @@ model Product {
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
 
-  images     ProductImage[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
-  favorites  Favorite[]
-  reviews    Review[]
+  images             ProductImage[]
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
+  favorites          Favorite[]
+  reviews            ProductReview[]
+  inventoryMovements InventoryMovement[]
 
   @@index([sellerId])
   @@index([categoryId, status])
   @@map("products")
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid())
+  productId     String
+  product       Product               @relation(fields: [productId], references: [id])
+  type          InventoryMovementType
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  reason        String?
+  createdBy     String
+  user          User                  @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime              @default(now())
+
+  @@index([productId, createdAt])
+  @@map("inventory_movements")
 }
 
 model ProductImage {
@@ -303,20 +362,27 @@ model CartItem {
   quantity  Int
   createdAt DateTime @default(now())
 
+  @@unique([cartId, productId])
   @@index([cartId])
+  @@index([productId])
   @@map("cart_items")
 }
 
 model Favorite {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
   productId String?
-  product   Product? @relation(fields: [productId], references: [id])
+  product   Product?       @relation(fields: [productId], references: [id])
   sellerId  String?
-  createdAt DateTime @default(now())
+  seller    SellerProfile? @relation(fields: [sellerId], references: [id])
+  createdAt DateTime       @default(now())
 
+  @@unique([userId, productId])
+  @@unique([userId, sellerId])
   @@index([userId])
+  @@index([productId])
+  @@index([sellerId])
   @@map("favorites")
 }
 
@@ -338,14 +404,31 @@ model Order {
   deliveredAt  DateTime?
   cancelledAt  DateTime?
 
-  items       OrderItem[]
-  review      Review?
-  transaction Transaction?
+  items          OrderItem[]
+  productReviews ProductReview[]
+  sellerReview   SellerReview?
+  transaction    Transaction?
+  statusHistory  OrderStatusHistory[]
 
   @@index([buyerId])
   @@index([sellerId, status])
   @@index([createdAt])
   @@map("orders")
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(uuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id])
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  changedBy  String
+  user       User         @relation(fields: [changedBy], references: [id])
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
 }
 
 model OrderItem {
@@ -358,6 +441,8 @@ model OrderItem {
   unitPrice Decimal @db.Decimal(10, 2)
   subtotal  Decimal @db.Decimal(10, 2)
 
+  review ProductReview?
+
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
@@ -367,28 +452,50 @@ model OrderItem {
 // REVIEWS Y REPUTACIÓN
 // --------------------------------------------------------------------------
 
-model Review {
-  id                   String                  @id @default(uuid())
-  orderId              String                  @unique
-  order                Order                   @relation(fields: [orderId], references: [id])
-  buyerId              String
-  buyer                User                    @relation(fields: [buyerId], references: [id])
-  sellerId             String
-  seller               SellerProfile           @relation("SellerReviews", fields: [sellerId], references: [id])
-  productId            String
-  product              Product                 @relation(fields: [productId], references: [id])
-  qualityScore         Int
-  responseTimeScore    Int
-  complianceScore      Int
-  attentionScore       Int
-  trustScore           Int
-  comment              String?
-  moderationStatus     ReviewModerationStatus  @default(PENDING_REVIEW)
-  createdAt            DateTime                @default(now())
+model ProductReview {
+  id               String                 @id @default(uuid())
+  orderId          String
+  order            Order                  @relation(fields: [orderId], references: [id])
+  orderItemId      String                 @unique
+  orderItem        OrderItem              @relation(fields: [orderItemId], references: [id])
+  productId        String
+  product          Product                @relation(fields: [productId], references: [id])
+  buyerId          String
+  buyer            User                   @relation(fields: [buyerId], references: [id])
+  rating           Int
+  comment          String?
+  moderationStatus ReviewModerationStatus @default(PENDING_REVIEW)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  deletedAt        DateTime?
+
+  @@index([productId])
+  @@index([buyerId])
+  @@map("product_reviews")
+}
+
+model SellerReview {
+  id                String                 @id @default(uuid())
+  orderId           String                 @unique
+  order             Order                  @relation(fields: [orderId], references: [id])
+  sellerId          String
+  seller            SellerProfile          @relation(fields: [sellerId], references: [id])
+  buyerId           String
+  buyer             User                   @relation(fields: [buyerId], references: [id])
+  qualityScore      Int
+  responseTimeScore Int
+  complianceScore   Int
+  attentionScore    Int
+  trustScore        Int
+  comment           String?
+  moderationStatus  ReviewModerationStatus @default(PENDING_REVIEW)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  deletedAt         DateTime?
 
   @@index([sellerId])
-  @@index([productId])
-  @@map("reviews")
+  @@index([buyerId])
+  @@map("seller_reviews")
 }
 
 // --------------------------------------------------------------------------
@@ -409,6 +516,7 @@ model Report {
 
   @@index([targetType, targetId])
   @@index([status])
+  @@index([reporterId])
   @@map("reports")
 }
 
@@ -474,6 +582,7 @@ model CommissionConfig {
   isActive       Boolean   @default(true)
   createdBy      String
 
+  @@index([isActive, effectiveFrom])
   @@map("commission_configs")
 }
 
