@@ -71,6 +71,11 @@ export class ProductsService {
     return this.paginate(where, query);
   }
 
+  /** Listado sin restricción de estado ni verificación del vendedor, solo para administradores. */
+  async findAllAdmin(query: ListProductsQueryDto) {
+    return this.paginate(this.buildFilters(query), query);
+  }
+
   async findById(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },

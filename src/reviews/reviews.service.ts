@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { NotificationType, OrderStatus, ReviewModerationStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
+import { AuditLogService } from '../audit';
 import { PaginationDto } from '../common/dto';
 import {
   CreateProductReviewDto,
@@ -20,6 +21,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // --------------------------------------------------------------------
@@ -270,15 +272,39 @@ export class ReviewsService {
     return { data, total, page: query.page ?? 1, limit: query.limit ?? 10 };
   }
 
-  async moderateProductReview(id: string, dto: ModerateReviewDto) {
+  async moderateProductReview(id: string, dto: ModerateReviewDto, adminId: string) {
     const review = await this.prisma.productReview.findUnique({ where: { id } });
     if (!review) throw new NotFoundException('Reseña no encontrada');
-    return this.prisma.productReview.update({ where: { id }, data: { moderationStatus: dto.status } });
+    const updated = await this.prisma.productReview.update({
+      where: { id },
+      data: { moderationStatus: dto.status },
+    });
+    await this.auditLogService.log(
+      adminId,
+      'REVIEW_MODERATED',
+      'ProductReview',
+      id,
+      { moderationStatus: review.moderationStatus },
+      { moderationStatus: updated.moderationStatus },
+    );
+    return updated;
   }
 
-  async moderateSellerReview(id: string, dto: ModerateReviewDto) {
+  async moderateSellerReview(id: string, dto: ModerateReviewDto, adminId: string) {
     const review = await this.prisma.sellerReview.findUnique({ where: { id } });
     if (!review) throw new NotFoundException('Reseña no encontrada');
-    return this.prisma.sellerReview.update({ where: { id }, data: { moderationStatus: dto.status } });
+    const updated = await this.prisma.sellerReview.update({
+      where: { id },
+      data: { moderationStatus: dto.status },
+    });
+    await this.auditLogService.log(
+      adminId,
+      'REVIEW_MODERATED',
+      'SellerReview',
+      id,
+      { moderationStatus: review.moderationStatus },
+      { moderationStatus: updated.moderationStatus },
+    );
+    return updated;
   }
 }

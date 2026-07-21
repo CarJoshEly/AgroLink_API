@@ -44,15 +44,19 @@ export class FinanceController {
   @Post('payment-methods')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Crear un método de pago (admin)' })
-  createPaymentMethod(@Body() dto: CreatePaymentMethodDto) {
-    return this.paymentMethodsService.create(dto);
+  createPaymentMethod(@Body() dto: CreatePaymentMethodDto, @CurrentUser() user: JwtPayload) {
+    return this.paymentMethodsService.create(dto, user.sub);
   }
 
   @Patch('payment-methods/:id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Actualizar un método de pago (admin)' })
-  updatePaymentMethod(@Param('id') id: string, @Body() dto: UpdatePaymentMethodDto) {
-    return this.paymentMethodsService.update(id, dto);
+  updatePaymentMethod(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentMethodDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentMethodsService.update(id, dto, user.sub);
   }
 
   // ---- Configuración de comisiones ----
@@ -120,7 +124,11 @@ export class FinanceController {
   @Patch('transactions/:id/status')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Actualizar el estado de una transacción (admin)' })
-  updateTransactionStatus(@Param('id') id: string, @Body() dto: UpdateTransactionStatusDto) {
-    return this.transactionsService.updateStatus(id, dto);
+  updateTransactionStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateTransactionStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.transactionsService.updateStatus(id, dto, user.sub);
   }
 }

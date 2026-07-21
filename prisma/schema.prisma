@@ -605,3 +605,14 @@ model AuditLog {
   @@index([userId])
   @@map("audit_logs")
 }
+
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("system_configs")
+}

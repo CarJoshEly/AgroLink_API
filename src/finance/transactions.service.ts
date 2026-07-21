@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { NotificationType, PaymentProvider, Prisma, TransactionStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
+import { AuditLogService } from '../audit';
 import { CommissionConfigService } from './commission-config.service';
 import { ListTransactionsQueryDto, UpdateTransactionStatusDto } from './dto';
 
@@ -27,6 +28,7 @@ export class TransactionsService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly commissionConfigService: CommissionConfigService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /** Se invoca al entregar un pedido. No bloqueante: cualquier fallo se registra y se ignora. */
@@ -100,7 +102,7 @@ export class TransactionsService {
     return transaction;
   }
 
-  async updateStatus(id: string, dto: UpdateTransactionStatusDto) {
+  async updateStatus(id: string, dto: UpdateTransactionStatusDto, adminId: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id },
       include: TRANSACTION_INCLUDE,
@@ -115,6 +117,15 @@ export class TransactionsService {
         ...(dto.status === TransactionStatus.COMPLETED ? { completedAt: new Date() } : {}),
       },
     });
+
+    await this.auditLogService.log(
+      adminId,
+      'TRANSACTION_STATUS_UPDATED',
+      'Transaction',
+      id,
+      { status: transaction.status },
+      { status: updated.status },
+    );
 
     await this.notificationsService.create(
       transaction.order.seller.userId,

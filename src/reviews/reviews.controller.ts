@@ -68,8 +68,12 @@ export class ReviewsController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Aprobar o rechazar una reseña de producto (admin)' })
-  moderateProductReview(@Param('id') id: string, @Body() dto: ModerateReviewDto) {
-    return this.reviewsService.moderateProductReview(id, dto);
+  moderateProductReview(
+    @Param('id') id: string,
+    @Body() dto: ModerateReviewDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reviewsService.moderateProductReview(id, dto, user.sub);
   }
 
   @Delete('products/:id')
@@ -128,8 +132,12 @@ export class ReviewsController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Aprobar o rechazar una reseña de vendedor (admin)' })
-  moderateSellerReview(@Param('id') id: string, @Body() dto: ModerateReviewDto) {
-    return this.reviewsService.moderateSellerReview(id, dto);
+  moderateSellerReview(
+    @Param('id') id: string,
+    @Body() dto: ModerateReviewDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reviewsService.moderateSellerReview(id, dto, user.sub);
   }
 
   @Delete('sellers/:id')

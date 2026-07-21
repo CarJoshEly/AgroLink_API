@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType, Prisma, ReportTargetType, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
+import { AuditLogService } from '../audit';
 import { CreateReportDto, ListReportsQueryDto, UpdateReportStatusDto } from './dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(reporterId: string, dto: CreateReportDto) {
@@ -61,10 +63,21 @@ export class ReportsService {
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException('Reporte no encontrado');
 
-    return this.prisma.report.update({
+    const updated = await this.prisma.report.update({
       where: { id },
       data: { status: dto.status, resolvedAt: new Date(), resolvedBy: adminId },
     });
+
+    await this.auditLogService.log(
+      adminId,
+      'REPORT_STATUS_UPDATED',
+      'Report',
+      id,
+      { status: report.status },
+      { status: updated.status },
+    );
+
+    return updated;
   }
 
   private async assertTargetExists(targetType: ReportTargetType, targetId: string): Promise<void> {

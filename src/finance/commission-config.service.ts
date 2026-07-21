@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database';
+import { AuditLogService } from '../audit';
 import { PaginationDto } from '../common/dto';
 import { CreateCommissionConfigDto } from './dto';
 
 @Injectable()
 export class CommissionConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getCurrent() {
     const current = await this.prisma.commissionConfig.findFirst({
@@ -29,7 +33,7 @@ export class CommissionConfigService {
   }
 
   async create(adminId: string, dto: CreateCommissionConfigDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const { created, previousPercentage } = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const previouslyActive = await tx.commissionConfig.findFirst({ where: { isActive: true } });
       if (previouslyActive) {
@@ -39,7 +43,7 @@ export class CommissionConfigService {
         });
       }
 
-      return tx.commissionConfig.create({
+      const created = await tx.commissionConfig.create({
         data: {
           percentage: dto.percentage,
           effectiveFrom: now,
@@ -47,6 +51,22 @@ export class CommissionConfigService {
           createdBy: adminId,
         },
       });
+
+      return {
+        created,
+        previousPercentage: previouslyActive ? Number(previouslyActive.percentage) : null,
+      };
     });
+
+    await this.auditLogService.log(
+      adminId,
+      'COMMISSION_CONFIG_CREATED',
+      'CommissionConfig',
+      created.id,
+      previousPercentage === null ? undefined : { percentage: previousPercentage },
+      { percentage: Number(created.percentage) },
+    );
+
+    return created;
   }
 }

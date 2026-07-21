@@ -10,6 +10,7 @@ import { PrismaService } from '../database';
 import { AuthService } from '../auth';
 import { StorageService } from '../storage';
 import { NotificationsService } from '../notifications';
+import { AuditLogService } from '../audit';
 import {
   DeleteAccountDto,
   ListSellersQueryDto,
@@ -34,6 +35,7 @@ export class UsersService {
     private readonly authService: AuthService,
     private readonly storageService: StorageService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // --------------------------------------------------------------------
@@ -197,20 +199,33 @@ export class UsersService {
     return this.toSafeUser(user);
   }
 
-  async setUserActive(id: string, isActive: boolean) {
-    await this.findUserOrThrow(id);
+  async setUserActive(id: string, isActive: boolean, adminId: string) {
+    const previous = await this.findUserOrThrow(id);
     const user = await this.prisma.user.update({ where: { id }, data: { isActive } });
     if (!isActive) await this.authService.logoutAll(id);
+
+    await this.auditLogService.log(
+      adminId,
+      isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+      'User',
+      id,
+      { isActive: previous.isActive },
+      { isActive },
+    );
+
     return this.toSafeUser(user);
   }
 
-  async deleteUser(id: string) {
+  async deleteUser(id: string, adminId: string) {
     await this.findUserOrThrow(id);
     await this.prisma.user.update({
       where: { id },
       data: { isActive: false, deletedAt: new Date() },
     });
     await this.authService.logoutAll(id);
+
+    await this.auditLogService.log(adminId, 'USER_DELETED', 'User', id);
+
     return { message: 'Usuario eliminado' };
   }
 
@@ -327,16 +342,14 @@ export class UsersService {
       });
     }
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: adminId,
-        action: opts.action,
-        entityType: 'SellerProfile',
-        entityId: seller.id,
-        oldValue: { verificationStatus: previousStatus },
-        newValue: { verificationStatus: newStatus },
-      },
-    });
+    await this.auditLogService.log(
+      adminId,
+      opts.action,
+      'SellerProfile',
+      seller.id,
+      { verificationStatus: previousStatus },
+      { verificationStatus: newStatus },
+    );
 
     if (opts.notificationType) {
       await this.notificationsService.create(

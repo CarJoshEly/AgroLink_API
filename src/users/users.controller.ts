@@ -116,21 +116,21 @@ export class UsersController {
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Activar un usuario (admin)' })
-  activateUser(@Param('id') id: string) {
-    return this.usersService.setUserActive(id, true);
+  activateUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.usersService.setUserActive(id, true, user.sub);
   }
 
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Desactivar un usuario (admin)' })
-  deactivateUser(@Param('id') id: string) {
-    return this.usersService.setUserActive(id, false);
+  deactivateUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.usersService.setUserActive(id, false, user.sub);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Eliminar un usuario (admin)' })
-  deleteUser(@Param('id') id: string) {
-    return this.usersService.deleteUser(id);
+  deleteUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.usersService.deleteUser(id, user.sub);
   }
 }

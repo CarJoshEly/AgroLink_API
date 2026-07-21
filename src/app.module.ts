@@ -25,6 +25,8 @@ import { FavoritesModule } from './favorites';
 import { ReportsModule } from './reports';
 import { NotificationsModule } from './notifications';
 import { FinanceModule } from './finance';
+import { AuditLogModule } from './audit';
+import { AdminModule } from './admin';
 
 // Filtros
 import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
@@ -76,6 +78,9 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
     // Notificaciones (global)
     NotificationsModule,
 
+    // Auditoría (global)
+    AuditLogModule,
+
     // Autenticación y autorización
     AuthModule,
 
@@ -99,6 +104,9 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
 
     // Arquitectura financiera (métodos de pago, comisiones, transacciones)
     FinanceModule,
+
+    // Panel administrativo (estadísticas, auditoría, configuración, productos)
+    AdminModule,
 
     // Health checks
     HealthModule,
