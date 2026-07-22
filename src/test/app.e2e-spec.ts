@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppModule } from '../app.module';
 
 describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
@@ -29,7 +29,7 @@ describe('AppModule (e2e)', () => {
         // 200 si la base de datos está disponible, 503 si no —
         // en ambos casos la ruta debe existir y responder con JSON.
         expect([200, 503]).toContain(res.status);
-        expect(res.body).toHaveProperty('status');
+        expect(res.body.data).toHaveProperty('status');
       });
   });
 });

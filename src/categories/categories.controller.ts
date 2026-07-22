@@ -1,12 +1,20 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { CurrentUser, Public, Roles } from '../common/decorators';
+import {
+  ApiCommonErrorResponses,
+  ApiCreatedResponseData,
+  ApiOkResponseData,
+  CurrentUser,
+  Public,
+  Roles,
+} from '../common/decorators';
 import type { JwtPayload } from '../common/interfaces';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, ListCategoriesQueryDto, UpdateCategoryDto } from './dto';
 
 @ApiTags('Categories')
+@ApiCommonErrorResponses()
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
@@ -14,6 +22,7 @@ export class CategoriesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Listar categorías' })
+  @ApiOkResponseData()
   list(@Query() query: ListCategoriesQueryDto) {
     return this.categoriesService.list(query.parentId);
   }
@@ -21,6 +30,7 @@ export class CategoriesController {
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Ver el detalle de una categoría' })
+  @ApiOkResponseData()
   findById(@Param('id') id: string) {
     return this.categoriesService.findById(id);
   }
@@ -29,6 +39,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Crear una categoría (admin)' })
+  @ApiCreatedResponseData(CreateCategoryDto)
   create(@Body() dto: CreateCategoryDto, @CurrentUser() user: JwtPayload) {
     return this.categoriesService.create(dto, user.sub);
   }
@@ -37,6 +48,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Actualizar una categoría (admin)' })
+  @ApiOkResponseData(UpdateCategoryDto)
   update(@Param('id') id: string, @Body() dto: UpdateCategoryDto, @CurrentUser() user: JwtPayload) {
     return this.categoriesService.update(id, dto, user.sub);
   }
@@ -45,6 +57,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Desactivar una categoría (admin)' })
+  @ApiOkResponseData()
   remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.categoriesService.remove(id, user.sub);
   }

@@ -18,8 +18,19 @@ async function bootstrap() {
   });
 
   // ─── Seguridad ───────────────────────────────────────────────
-  // Helmet — Headers de seguridad HTTP
-  app.use(helmet());
+  // Helmet — Headers de seguridad HTTP (CSP ajustada para permitir que Swagger UI siga funcionando)
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+          scriptSrc: [`'self'`, `'unsafe-inline'`],
+        },
+      },
+    }),
+  );
 
   // CORS — Control de orígenes
   app.enableCors(corsConfig());

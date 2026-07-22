@@ -176,8 +176,14 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: order.items.map((item) => item.productId) } },
+      });
+      const productById = new Map(products.map((p) => [p.id, p]));
+
+      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
       for (const item of order.items) {
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        const product = productById.get(item.productId);
         if (!product || item.quantity > product.stock) {
           throw new BadRequestException(
             `No hay suficiente stock de "${product?.name ?? item.productId}" para aceptar este pedido`,
@@ -192,18 +198,17 @@ export class OrdersService {
             : product.status;
 
         await tx.product.update({ where: { id: product.id }, data: { stock: newStock, status } });
-        await tx.inventoryMovement.create({
-          data: {
-            productId: product.id,
-            type: InventoryMovementType.EXIT,
-            quantity: item.quantity,
-            previousStock,
-            newStock,
-            reason: `Pedido ${order.id} aceptado`,
-            createdBy: actor.userId,
-          },
+        movements.push({
+          productId: product.id,
+          type: InventoryMovementType.EXIT,
+          quantity: item.quantity,
+          previousStock,
+          newStock,
+          reason: `Pedido ${order.id} aceptado`,
+          createdBy: actor.userId,
         });
       }
+      await tx.inventoryMovement.createMany({ data: movements });
 
       const result = await tx.order.update({
         where: { id },
@@ -342,8 +347,14 @@ export class OrdersService {
     const previousStatus = order.status;
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: order.items.map((item) => item.productId) } },
+      });
+      const productById = new Map(products.map((p) => [p.id, p]));
+
+      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
       for (const item of order.items) {
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        const product = productById.get(item.productId);
         if (!product) continue;
 
         const previousStock = product.stock;
@@ -354,18 +365,17 @@ export class OrdersService {
             : product.status;
 
         await tx.product.update({ where: { id: product.id }, data: { stock: newStock, status } });
-        await tx.inventoryMovement.create({
-          data: {
-            productId: product.id,
-            type: InventoryMovementType.ENTRY,
-            quantity: item.quantity,
-            previousStock,
-            newStock,
-            reason: `Pedido ${order.id} cancelado`,
-            createdBy: actor.userId,
-          },
+        movements.push({
+          productId: product.id,
+          type: InventoryMovementType.ENTRY,
+          quantity: item.quantity,
+          previousStock,
+          newStock,
+          reason: `Pedido ${order.id} cancelado`,
+          createdBy: actor.userId,
         });
       }
+      await tx.inventoryMovement.createMany({ data: movements });
 
       const result = await tx.order.update({
         where: { id },

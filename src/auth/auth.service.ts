@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -44,6 +45,8 @@ function parseDurationMs(duration: string): number {
 
 @Injectable()
 export class AuthService {
+  private readonly securityLogger = new Logger('Security');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -154,14 +157,20 @@ export class AuthService {
 
   async login(dto: LoginDto, meta: RequestMeta) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user) throw new UnauthorizedException('Credenciales inválidas');
+    if (!user) {
+      this.securityLogger.warn(`Intento de login con correo inexistente: ${dto.email} — ip=${meta.ipAddress}`);
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
     if (!user.isActive) throw new ForbiddenException('Tu cuenta ha sido desactivada');
     if (!user.emailVerifiedAt) {
       throw new ForbiddenException('Debes verificar tu correo antes de iniciar sesión');
     }
 
     const passwordMatches = await this.comparePassword(dto.password, user.passwordHash);
-    if (!passwordMatches) throw new UnauthorizedException('Credenciales inválidas');
+    if (!passwordMatches) {
+      this.securityLogger.warn(`Contraseña incorrecta para ${dto.email} — ip=${meta.ipAddress}`);
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
 
     const tokens = await this.issueTokens(user, meta);
     return { user: this.toSafeUser(user), ...tokens };
@@ -178,6 +187,9 @@ export class AuthService {
         where: { userId: stored.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
+      this.securityLogger.warn(
+        `Reutilización de refresh token detectada — posible robo. userId=${stored.userId} ip=${meta.ipAddress}`,
+      );
       throw new UnauthorizedException(
         'Refresh token inválido. Por seguridad, todas las sesiones han sido cerradas.',
       );

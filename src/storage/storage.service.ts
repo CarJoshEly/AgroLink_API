@@ -3,10 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
+import fileTypeChecker from 'file-type-checker';
 import {
   ALLOWED_IMAGE_MIMES,
   MAX_IMAGE_SIZE,
 } from '../common/constants';
+
+/** Tipos reales (por firma de bytes) aceptados — deben corresponder a ALLOWED_IMAGE_MIMES. */
+const ALLOWED_IMAGE_SIGNATURES = ['jpeg', 'png', 'webp'];
 
 @Injectable()
 export class StorageService {
@@ -33,6 +37,11 @@ export class StorageService {
     if (file.size > MAX_IMAGE_SIZE) {
       throw new BadRequestException(
         `El archivo excede el tamaño máximo permitido (${MAX_IMAGE_SIZE / (1024 * 1024)}MB)`,
+      );
+    }
+    if (!fileTypeChecker.validateFileType(file.buffer, ALLOWED_IMAGE_SIGNATURES)) {
+      throw new BadRequestException(
+        'El contenido del archivo no corresponde a una imagen válida (JPEG, PNG o WEBP)',
       );
     }
   }

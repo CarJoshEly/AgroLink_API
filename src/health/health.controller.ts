@@ -8,10 +8,11 @@ import {
 } from '@nestjs/terminus';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../database';
-import { Public } from '../common/decorators';
+import { ApiCommonErrorResponses, ApiOkResponseData, Public } from '../common/decorators';
 
 @ApiTags('Health')
 @Public()
+@ApiCommonErrorResponses()
 @Controller('health')
 export class HealthController {
   constructor(
@@ -28,6 +29,7 @@ export class HealthController {
     description:
       'Verifica la conexión con PostgreSQL y el uso de memoria del servidor',
   })
+  @ApiOkResponseData()
   async check(): Promise<HealthCheckResult> {
     return this.health.check([
       // Verificar conexión con PostgreSQL

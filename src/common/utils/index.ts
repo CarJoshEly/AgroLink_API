@@ -2,6 +2,26 @@
 // Utilidades globales de AgroLink Honduras
 // ==========================================================================
 
+import type { Request } from 'express';
+import { ALLOWED_IMAGE_MIMES } from '../constants';
+
+/**
+ * Filtro de multer: rechaza el archivo antes de bufferearlo por completo si el
+ * mimetype declarado por el cliente no corresponde a una imagen permitida.
+ * Primera línea de defensa; el contenido real se verifica luego por bytes en StorageService.
+ */
+export function imageFileFilter(
+  _req: Request,
+  file: Express.Multer.File,
+  callback: (error: Error | null, acceptFile: boolean) => void,
+): void {
+  if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+    callback(null, false);
+    return;
+  }
+  callback(null, true);
+}
+
 /**
  * Genera un slug a partir de un texto
  */

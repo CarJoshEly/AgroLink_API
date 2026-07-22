@@ -16,9 +16,16 @@ import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { UserRole } from '@prisma/client';
-import { CurrentUser, Roles } from '../common/decorators';
+import {
+  ApiCommonErrorResponses,
+  ApiCreatedResponseData,
+  ApiOkResponseData,
+  CurrentUser,
+  Roles,
+} from '../common/decorators';
 import type { JwtPayload } from '../common/interfaces';
 import { MAX_IMAGE_SIZE } from '../common/constants';
+import { imageFileFilter } from '../common/utils';
 import { UsersService } from './users.service';
 import {
   DeleteAccountDto,
@@ -29,6 +36,7 @@ import {
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
+@ApiCommonErrorResponses()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -37,12 +45,14 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Obtener mi perfil completo' })
+  @ApiOkResponseData()
   getMyProfile(@CurrentUser() user: JwtPayload) {
     return this.usersService.getMyProfile(user.sub);
   }
 
   @Patch('me')
   @ApiOperation({ summary: 'Actualizar mi perfil (nombre, teléfono)' })
+  @ApiOkResponseData(UpdateProfileDto)
   updateProfile(@CurrentUser() user: JwtPayload, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.sub, dto);
   }
@@ -50,8 +60,13 @@ export class UsersController {
   @Post('me/avatar')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Subir mi fotografía de perfil' })
+  @ApiCreatedResponseData()
   @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: MAX_IMAGE_SIZE } }),
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_SIZE },
+      fileFilter: imageFileFilter,
+    }),
   )
   uploadAvatar(@CurrentUser() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
     return this.usersService.uploadAvatar(user.sub, file);
@@ -59,6 +74,7 @@ export class UsersController {
 
   @Put('me/location')
   @ApiOperation({ summary: 'Crear o actualizar mi ubicación principal' })
+  @ApiOkResponseData(UpdateLocationDto)
   upsertLocation(@CurrentUser() user: JwtPayload, @Body() dto: UpdateLocationDto) {
     return this.usersService.upsertLocation(user.sub, dto);
   }
@@ -67,6 +83,7 @@ export class UsersController {
   @Roles(UserRole.SELLER)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Enviar/actualizar documentos de verificación (DNI, selfie, prueba de vida)' })
+  @ApiOkResponseData()
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -75,7 +92,7 @@ export class UsersController {
         { name: 'selfie', maxCount: 1 },
         { name: 'lifeProof', maxCount: 1 },
       ],
-      { storage: memoryStorage(), limits: { fileSize: MAX_IMAGE_SIZE } },
+      { storage: memoryStorage(), limits: { fileSize: MAX_IMAGE_SIZE }, fileFilter: imageFileFilter },
     ),
   )
   uploadIdentityVerification(
@@ -93,6 +110,7 @@ export class UsersController {
 
   @Delete('me')
   @ApiOperation({ summary: 'Eliminar mi cuenta' })
+  @ApiOkResponseData()
   deleteOwnAccount(@CurrentUser() user: JwtPayload, @Body() dto: DeleteAccountDto) {
     return this.usersService.deleteOwnAccount(user.sub, dto);
   }
@@ -102,6 +120,7 @@ export class UsersController {
   @Get()
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Listar usuarios (admin)' })
+  @ApiOkResponseData()
   listUsers(@Query() query: ListUsersQueryDto) {
     return this.usersService.listUsers(query);
   }
@@ -109,6 +128,7 @@ export class UsersController {
   @Get(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Ver el detalle de un usuario (admin)' })
+  @ApiOkResponseData()
   getUserById(@Param('id') id: string) {
     return this.usersService.getUserById(id);
   }
@@ -116,6 +136,7 @@ export class UsersController {
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Activar un usuario (admin)' })
+  @ApiOkResponseData()
   activateUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.usersService.setUserActive(id, true, user.sub);
   }
@@ -123,6 +144,7 @@ export class UsersController {
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Desactivar un usuario (admin)' })
+  @ApiOkResponseData()
   deactivateUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.usersService.setUserActive(id, false, user.sub);
   }
@@ -130,6 +152,7 @@ export class UsersController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Eliminar un usuario (admin)' })
+  @ApiOkResponseData()
   deleteUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.usersService.deleteUser(id, user.sub);
   }

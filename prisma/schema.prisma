@@ -201,6 +201,7 @@ model User {
   inventoryMovements InventoryMovement[]
   orderStatusChanges OrderStatusHistory[]
 
+  @@index([role])
   @@map("users")
 }
 
@@ -412,6 +413,7 @@ model Order {
 
   @@index([buyerId])
   @@index([sellerId, status])
+  @@index([status])
   @@index([createdAt])
   @@map("orders")
 }
@@ -571,6 +573,7 @@ model Transaction {
 
   @@index([paymentMethodId])
   @@index([status])
+  @@index([createdAt])
   @@map("transactions")
 }
 
@@ -603,6 +606,8 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([userId])
+  @@index([createdAt])
+  @@index([action])
   @@map("audit_logs")
 }
 

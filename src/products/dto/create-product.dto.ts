@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ProductUnit } from '@prisma/client';
 import { IsEnum, IsInt, IsNumber, IsString, IsUUID, Min, MinLength } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators';
 
 export class CreateProductDto {
   @ApiProperty({ description: 'ID de la categoría' })
@@ -8,11 +9,13 @@ export class CreateProductDto {
   categoryId: string;
 
   @ApiProperty({ example: 'Maíz Amarillo de Primera' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(3)
   name: string;
 
   @ApiProperty({ example: 'Maíz amarillo cosechado en la temporada actual, grano seleccionado.' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(10)
   description: string;

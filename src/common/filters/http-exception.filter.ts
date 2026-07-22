@@ -3,6 +3,7 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -10,6 +11,7 @@ import { Request, Response } from 'express';
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+  private readonly securityLogger = new Logger('Security');
 
   catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -35,6 +37,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     this.logger.warn(
       `[${request.method}] ${request.url} — ${status} — ${JSON.stringify(error.message)}`,
     );
+
+    if (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN) {
+      this.securityLogger.warn(
+        `[${request.method}] ${request.url} — ${status} — ip=${request.ip}`,
+      );
+    }
 
     response.status(status).json(errorResponse);
   }

@@ -1,8 +1,10 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Frutas Tropicales' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(2)
   @MaxLength(100)

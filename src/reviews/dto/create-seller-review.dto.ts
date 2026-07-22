@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators';
 
 export class CreateSellerReviewDto {
   @ApiProperty({ description: 'ID del pedido (Order) que se está reseñando' })
@@ -37,6 +38,7 @@ export class CreateSellerReviewDto {
   trustScore: number;
 
   @ApiPropertyOptional({ example: 'Muy buena atención y puntualidad en la entrega.' })
+  @SanitizeHtml()
   @IsOptional()
   @IsString()
   comment?: string;

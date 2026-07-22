@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Public } from '../common/decorators';
+import { ApiCommonErrorResponses, ApiOkResponseData, Public } from '../common/decorators';
 import { GoogleMapsService } from '../google-maps';
 import { LocationsService } from './locations.service';
 import {
@@ -12,6 +12,7 @@ import {
 } from './dto';
 
 @ApiTags('Locations')
+@ApiCommonErrorResponses()
 @Controller('locations')
 export class LocationsController {
   constructor(
@@ -22,6 +23,7 @@ export class LocationsController {
   @Public()
   @Get('departments')
   @ApiOperation({ summary: 'Listar departamentos de Honduras' })
+  @ApiOkResponseData()
   listDepartments() {
     return this.locationsService.listDepartments();
   }
@@ -29,6 +31,7 @@ export class LocationsController {
   @Public()
   @Get('municipalities')
   @ApiOperation({ summary: 'Listar municipios (opcionalmente filtrados por departamento)' })
+  @ApiOkResponseData()
   listMunicipalities(@Query() query: ListMunicipalitiesQueryDto) {
     return this.locationsService.listMunicipalities(query.departmentId);
   }
@@ -36,6 +39,7 @@ export class LocationsController {
   @Public()
   @Get('sellers/nearby')
   @ApiOperation({ summary: 'Buscar vendedores verificados cercanos a una coordenada' })
+  @ApiOkResponseData()
   findNearbySellers(@Query() query: NearbySellersQueryDto) {
     return this.locationsService.findNearbySellers(query);
   }
@@ -43,6 +47,7 @@ export class LocationsController {
   @Post('distance')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Calcular la distancia (línea recta) entre dos coordenadas' })
+  @ApiOkResponseData()
   calculateDistance(@Body() dto: CalculateDistanceDto) {
     return this.locationsService.calculateDistanceKm(dto);
   }
@@ -50,6 +55,7 @@ export class LocationsController {
   @Post('geocode')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Convertir una dirección en coordenadas (Google Maps)' })
+  @ApiOkResponseData()
   geocode(@Body() dto: GeocodeAddressDto) {
     return this.googleMapsService.geocodeAddress(dto.address);
   }
@@ -57,6 +63,7 @@ export class LocationsController {
   @Post('reverse-geocode')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Convertir coordenadas en una dirección legible (Google Maps)' })
+  @ApiOkResponseData()
   reverseGeocode(@Body() dto: ReverseGeocodeDto) {
     return this.googleMapsService.reverseGeocode(dto.latitude, dto.longitude);
   }

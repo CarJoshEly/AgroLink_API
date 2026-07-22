@@ -38,4 +38,5 @@ export const swaggerConfig = new DocumentBuilder()
   .addTag('Notifications', 'Notificaciones del sistema')
   .addTag('Locations', 'Ubicaciones geográficas')
   .addTag('Admin', 'Panel de administración')
+  .addTag('Finance', 'Arquitectura financiera: pagos, comisiones y transacciones')
   .build();

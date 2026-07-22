@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsNotEmpty, IsString, IsUUID, MinLength } from 'class-validator';
 import { ReportTargetType } from '@prisma/client';
+import { SanitizeHtml } from '../../common/decorators';
 
 // El valor legado REVIEW se excluye a propósito: los reportes nuevos deben
 // usar PRODUCT_REVIEW o SELLER_REVIEW ahora que las reseñas están divididas.
@@ -21,6 +22,7 @@ export class CreateReportDto {
   targetId: string;
 
   @ApiProperty({ example: 'El producto no coincide con la descripción' })
+  @SanitizeHtml()
   @IsString()
   @IsNotEmpty({ message: 'El motivo del reporte es obligatorio' })
   @MinLength(5)

@@ -11,6 +11,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators';
 
 // DTO independiente (no extiende RegisterBuyerDto): a diferencia del
 // comprador, el teléfono es obligatorio para vendedores, y mezclar
@@ -18,6 +19,7 @@ import {
 // propiedad vía herencia es ambiguo en class-validator.
 export class RegisterSellerDto {
   @ApiProperty({ example: 'María Fernández' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
   @MaxLength(100)
@@ -41,6 +43,7 @@ export class RegisterSellerDto {
   password: string;
 
   @ApiProperty({ example: 'Finca Fernández' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(2)
   @MaxLength(150)
@@ -62,6 +65,7 @@ export class RegisterSellerDto {
   municipalityId: string;
 
   @ApiProperty({ example: 'Barrio El Centro, 2da calle' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(5)
   address: string;

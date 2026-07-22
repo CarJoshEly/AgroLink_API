@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { SanitizeHtml } from '../../common/decorators';
 
 export class RegisterBuyerDto {
   @ApiProperty({ example: 'María Fernández' })
+  @SanitizeHtml()
   @IsString()
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
   @MaxLength(100)

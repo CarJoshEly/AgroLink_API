@@ -252,7 +252,20 @@ export class UsersService {
         skip: query.skip,
         take: query.limit,
         orderBy: { [query.sortBy ?? 'createdAt']: query.sortOrder ?? 'desc' },
-        include: { user: true, identityVerification: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+              isActive: true,
+              createdAt: true,
+            },
+          },
+          identityVerification: true,
+        },
       }),
       this.prisma.sellerProfile.count({ where }),
     ]);
@@ -261,7 +274,8 @@ export class UsersService {
   }
 
   async getSellerById(id: string) {
-    return this.findSellerOrThrow(id);
+    const seller = await this.findSellerOrThrow(id);
+    return { ...seller, user: this.toSafeUser(seller.user) };
   }
 
   async markSellerUnderReview(id: string, adminId: string) {
