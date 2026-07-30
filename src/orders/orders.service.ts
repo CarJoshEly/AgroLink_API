@@ -1,3 +1,4 @@
+
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   CartStatus,
@@ -17,9 +18,15 @@ import { ListOrdersQueryDto, RejectOrderDto } from './dto';
 export type Actor = { userId: string; role: UserRole };
 
 const ORDER_INCLUDE = {
-  items: { include: { product: { select: { id: true, name: true } } } },
+  items: {
+    include: {
+      product: { select: { id: true, name: true } },
+      review: { select: { id: true, rating: true } },
+    },
+  },
   seller: { select: { id: true, businessName: true } },
   buyer: { select: { id: true, name: true } },
+  sellerReview: { select: { id: true, qualityScore: true } },
 } as const;
 
 @Injectable()
@@ -150,9 +157,15 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        items: { include: { product: true } },
+        items: {
+          include: {
+            product: true,
+            review: { select: { id: true, rating: true, comment: true } },
+          },
+        },
         seller: { select: { id: true, businessName: true, userId: true } },
         buyer: { select: { id: true, name: true } },
+        sellerReview: true,
       },
     });
     if (!order) throw new NotFoundException('Pedido no encontrado');

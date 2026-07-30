@@ -10,6 +10,8 @@ const CART_ITEM_PRODUCT_SELECT = {
   unit: true,
   stock: true,
   status: true,
+  sellerId: true,
+  seller: { select: { id: true, businessName: true } },
   images: { select: { url: true }, orderBy: { order: 'asc' as const }, take: 1 },
 } as const;
 
