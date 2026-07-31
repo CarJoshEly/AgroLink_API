@@ -42,6 +42,8 @@ enum ProductUnit {
   LB
   KG
   QQ // quintal
+  ARROBA
+  MANOJO
   BOX
   BAG
   LITER
@@ -136,7 +138,7 @@ model Municipality {
   name         String
   code         String     @unique
   departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   locations    Location[]
   createdAt    DateTime   @default(now())
 
@@ -147,11 +149,11 @@ model Municipality {
 model Location {
   id             String        @id @default(uuid())
   userId         String
-  user           User          @relation(fields: [userId], references: [id])
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId   String
-  department     Department    @relation(fields: [departmentId], references: [id])
+  department     Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   municipalityId String
-  municipality   Municipality  @relation(fields: [municipalityId], references: [id])
+  municipality   Municipality  @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
   address        String
   latitude       Decimal       @db.Decimal(9, 6)
   longitude      Decimal       @db.Decimal(9, 6)
@@ -223,7 +225,7 @@ model RefreshToken {
 model SellerProfile {
   id                 String              @id @default(uuid())
   userId             String              @unique
-  user               User                @relation(fields: [userId], references: [id])
+  user               User                @relation(fields: [userId], references: [id], onDelete: Restrict)
   businessName       String
   dni                String              @unique
   verificationStatus VerificationStatus  @default(PENDING)
@@ -247,7 +249,7 @@ model SellerProfile {
 model IdentityVerification {
   id              String             @id @default(uuid())
   sellerProfileId String             @unique
-  sellerProfile   SellerProfile      @relation(fields: [sellerProfileId], references: [id])
+  sellerProfile   SellerProfile      @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
   dniFrontUrl     String
   dniBackUrl      String
   selfieUrl       String
@@ -270,7 +272,7 @@ model Category {
   name     String
   slug     String     @unique
   parentId String?
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Category[] @relation("CategoryTree")
   isActive Boolean    @default(true)
   products Product[]
@@ -282,9 +284,9 @@ model Category {
 model Product {
   id           String        @id @default(uuid())
   sellerId     String
-  seller       SellerProfile @relation(fields: [sellerId], references: [id])
+  seller       SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
   categoryId   String
-  category     Category      @relation(fields: [categoryId], references: [id])
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   name         String
   description  String
   price        Decimal       @db.Decimal(10, 2)
@@ -310,14 +312,14 @@ model Product {
 model InventoryMovement {
   id            String                @id @default(uuid())
   productId     String
-  product       Product               @relation(fields: [productId], references: [id])
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
   type          InventoryMovementType
   quantity      Int
   previousStock Int
   newStock      Int
   reason        String?
   createdBy     String
-  user          User                  @relation(fields: [createdBy], references: [id])
+  user          User                  @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   createdAt     DateTime              @default(now())
 
   @@index([productId, createdAt])
@@ -327,7 +329,7 @@ model InventoryMovement {
 model ProductImage {
   id        String   @id @default(uuid())
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
   order     Int      @default(0)
   createdAt DateTime @default(now())
@@ -343,7 +345,7 @@ model ProductImage {
 model Cart {
   id        String     @id @default(uuid())
   userId    String
-  user      User       @relation(fields: [userId], references: [id])
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    CartStatus @default(ACTIVE)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
@@ -357,9 +359,9 @@ model Cart {
 model CartItem {
   id        String   @id @default(uuid())
   cartId    String
-  cart      Cart     @relation(fields: [cartId], references: [id])
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
   createdAt DateTime @default(now())
 
@@ -372,11 +374,11 @@ model CartItem {
 model Favorite {
   id        String         @id @default(uuid())
   userId    String
-  user      User           @relation(fields: [userId], references: [id])
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String?
-  product   Product?       @relation(fields: [productId], references: [id])
+  product   Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
   sellerId  String?
-  seller    SellerProfile? @relation(fields: [sellerId], references: [id])
+  seller    SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   createdAt DateTime       @default(now())
 
   @@unique([userId, productId])
@@ -394,9 +396,9 @@ model Favorite {
 model Order {
   id           String        @id @default(uuid())
   buyerId      String
-  buyer        User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyer        User          @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
   sellerId     String
-  seller       SellerProfile @relation("SellerOrders", fields: [sellerId], references: [id])
+  seller       SellerProfile @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
   status       OrderStatus   @default(PENDING)
   totalAmount  Decimal       @db.Decimal(10, 2)
   createdAt    DateTime      @default(now())
@@ -421,11 +423,11 @@ model Order {
 model OrderStatusHistory {
   id         String       @id @default(uuid())
   orderId    String
-  order      Order        @relation(fields: [orderId], references: [id])
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   fromStatus OrderStatus?
   toStatus   OrderStatus
   changedBy  String
-  user       User         @relation(fields: [changedBy], references: [id])
+  user       User         @relation(fields: [changedBy], references: [id], onDelete: Restrict)
   note       String?
   createdAt  DateTime     @default(now())
 
@@ -436,9 +438,9 @@ model OrderStatusHistory {
 model OrderItem {
   id        String  @id @default(uuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
   unitPrice Decimal @db.Decimal(10, 2)
   subtotal  Decimal @db.Decimal(10, 2)
@@ -457,13 +459,13 @@ model OrderItem {
 model ProductReview {
   id               String                 @id @default(uuid())
   orderId          String
-  order            Order                  @relation(fields: [orderId], references: [id])
+  order            Order                  @relation(fields: [orderId], references: [id], onDelete: Restrict)
   orderItemId      String                 @unique
-  orderItem        OrderItem              @relation(fields: [orderItemId], references: [id])
+  orderItem        OrderItem              @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
   productId        String
-  product          Product                @relation(fields: [productId], references: [id])
+  product          Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
   buyerId          String
-  buyer            User                   @relation(fields: [buyerId], references: [id])
+  buyer            User                   @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   rating           Int
   comment          String?
   moderationStatus ReviewModerationStatus @default(PENDING_REVIEW)
@@ -479,11 +481,11 @@ model ProductReview {
 model SellerReview {
   id                String                 @id @default(uuid())
   orderId           String                 @unique
-  order             Order                  @relation(fields: [orderId], references: [id])
+  order             Order                  @relation(fields: [orderId], references: [id], onDelete: Restrict)
   sellerId          String
-  seller            SellerProfile          @relation(fields: [sellerId], references: [id])
+  seller            SellerProfile          @relation(fields: [sellerId], references: [id], onDelete: Restrict)
   buyerId           String
-  buyer             User                   @relation(fields: [buyerId], references: [id])
+  buyer             User                   @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   qualityScore      Int
   responseTimeScore Int
   complianceScore   Int
@@ -507,7 +509,7 @@ model SellerReview {
 model Report {
   id         String           @id @default(uuid())
   reporterId String
-  reporter   User             @relation("ReporterReports", fields: [reporterId], references: [id])
+  reporter   User             @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Restrict)
   targetType ReportTargetType
   targetId   String
   reason     String
@@ -529,7 +531,7 @@ model Report {
 model Notification {
   id        String           @id @default(uuid())
   userId    String
-  user      User             @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
   title     String
   message   String
@@ -560,9 +562,9 @@ model PaymentMethod {
 model Transaction {
   id                  String            @id @default(uuid())
   orderId             String            @unique
-  order               Order             @relation(fields: [orderId], references: [id])
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
   paymentMethodId     String
-  paymentMethod       PaymentMethod     @relation(fields: [paymentMethodId], references: [id])
+  paymentMethod       PaymentMethod     @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   amount              Decimal           @db.Decimal(10, 2)
   commissionAmount    Decimal           @db.Decimal(10, 2)
   commissionPercentage Decimal          @db.Decimal(5, 2)
@@ -596,7 +598,7 @@ model CommissionConfig {
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action     String
   entityType String
   entityId   String

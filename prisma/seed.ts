@@ -255,30 +255,52 @@ function productDescription(catName: string, muniName: string, deptName: string)
   return pick(templates);
 }
 
-const POSITIVE_COMMENTS = [
+const SELLER_POSITIVE_COMMENTS = [
+  'El vendedor fue muy puntual y respondió rápido a mis mensajes.',
+  'Buena atención y precio justo, volveré a comprarle a este vendedor.',
+  'Todo perfecto, gracias por la atención y el seguimiento del pedido.',
+  'Vendedor muy confiable, cumplió con los tiempos acordados.',
+  'Excelente comunicación durante todo el proceso de compra.',
+  'Muy buena experiencia con este vendedor, lo recomiendo.',
+];
+const SELLER_NEUTRAL_COMMENTS = [
+  'El vendedor cumplió, aunque la respuesta a mensajes tardó un poco.',
+  'Atención correcta, la comunicación pudo ser más fluida.',
+  'Cumple con lo ofrecido, sin más comentarios sobre el vendedor.',
+];
+const SELLER_NEGATIVE_COMMENTS = [
+  'El vendedor tardó demasiado en responder y coordinar la entrega.',
+  'Hubo demora considerable de parte del vendedor.',
+  'Poca comunicación por parte del vendedor durante el pedido.',
+];
+
+const PRODUCT_POSITIVE_COMMENTS = [
   'Excelente calidad, tal como se describe. Muy recomendado.',
-  'El vendedor fue muy puntual y el producto llegó fresco.',
-  'Buena atención y precio justo, volveré a comprar.',
+  'El producto llegó fresco y bien empacado.',
   'Producto de primera, superó mis expectativas.',
-  'Todo perfecto, gracias por la atención.',
+  'Muy buena calidad, se nota que es producto fresco del campo.',
+  'Justo lo que esperaba, producto en perfecto estado.',
   'Muy buena experiencia de compra, producto fresco y bien empacado.',
 ];
-const NEUTRAL_COMMENTS = [
+const PRODUCT_NEUTRAL_COMMENTS = [
   'El producto cumplió, aunque la entrega tardó un poco más de lo esperado.',
-  'Buen producto, la comunicación con el vendedor pudo ser mejor.',
-  'Cumple con lo ofrecido, sin más comentarios.',
+  'Buen producto, aunque esperaba un poco más de frescura.',
+  'Cumple con lo ofrecido, sin más comentarios sobre el producto.',
 ];
-const NEGATIVE_COMMENTS = [
+const PRODUCT_NEGATIVE_COMMENTS = [
   'El producto llegó en peores condiciones de lo esperado.',
-  'Hubo demora considerable en la entrega.',
+  'La calidad no era la que se mostraba en la publicación.',
   'La cantidad no coincidía exactamente con lo solicitado.',
 ];
 
-function reviewComment(avgScore: number): string | null {
+function reviewComment(
+  avgScore: number,
+  pools: { positive: string[]; neutral: string[]; negative: string[] },
+): string | null {
   if (Math.random() < 0.15) return null;
-  if (avgScore >= 4) return pick(POSITIVE_COMMENTS);
-  if (avgScore >= 3) return pick(NEUTRAL_COMMENTS);
-  return pick(NEGATIVE_COMMENTS);
+  if (avgScore >= 4) return pick(pools.positive);
+  if (avgScore >= 3) return pick(pools.neutral);
+  return pick(pools.negative);
 }
 
 const REPORT_REASONS = [
@@ -1093,10 +1115,24 @@ async function main() {
     const avg =
       (scores.qualityScore + scores.responseTimeScore + scores.complianceScore + scores.attentionScore + scores.trustScore) /
       5;
-    const createdAt = addDays(order.deliveredAt ?? order.createdAt, randInt(0, 10));
-    const clampedCreatedAt = createdAt.getTime() > now.getTime() ? now : createdAt;
-    const moderationStatus = moderationPool();
-    const comment = reviewComment(avg);
+
+    const sellerCreatedAt = addDays(order.deliveredAt ?? order.createdAt, randInt(0, 10));
+    const clampedSellerCreatedAt = sellerCreatedAt.getTime() > now.getTime() ? now : sellerCreatedAt;
+    const sellerModerationStatus = moderationPool();
+    const sellerComment = reviewComment(avg, {
+      positive: SELLER_POSITIVE_COMMENTS,
+      neutral: SELLER_NEUTRAL_COMMENTS,
+      negative: SELLER_NEGATIVE_COMMENTS,
+    });
+
+    const productCreatedAt = addDays(order.deliveredAt ?? order.createdAt, randInt(0, 10));
+    const clampedProductCreatedAt = productCreatedAt.getTime() > now.getTime() ? now : productCreatedAt;
+    const productModerationStatus = moderationPool();
+    const productComment = reviewComment(scores.qualityScore, {
+      positive: PRODUCT_POSITIVE_COMMENTS,
+      neutral: PRODUCT_NEUTRAL_COMMENTS,
+      negative: PRODUCT_NEGATIVE_COMMENTS,
+    });
 
     sellerReviewRows.push({
       id: uuid(),
@@ -1104,9 +1140,9 @@ async function main() {
       buyerId: order.buyerId,
       sellerId: order.sellerId,
       ...scores,
-      comment,
-      moderationStatus,
-      createdAt: clampedCreatedAt,
+      comment: sellerComment,
+      moderationStatus: sellerModerationStatus,
+      createdAt: clampedSellerCreatedAt,
     });
     productReviewRows.push({
       id: uuid(),
@@ -1115,9 +1151,9 @@ async function main() {
       productId: order.firstProductId,
       buyerId: order.buyerId,
       rating: scores.qualityScore,
-      comment,
-      moderationStatus,
-      createdAt: clampedCreatedAt,
+      comment: productComment,
+      moderationStatus: productModerationStatus,
+      createdAt: clampedProductCreatedAt,
     });
   });
 

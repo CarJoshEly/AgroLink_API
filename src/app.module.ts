@@ -4,7 +4,14 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Configuración
-import { appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig } from './config';
+import {
+  appConfig,
+  databaseConfig,
+  jwtConfig,
+  supabaseConfig,
+  googleMapsConfig,
+  mailConfig,
+} from './config';
 
 // Módulos
 import { DatabaseModule } from './database';
@@ -50,7 +57,7 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig],
+      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig, mailConfig],
     }),
 
     // Rate Limiting global

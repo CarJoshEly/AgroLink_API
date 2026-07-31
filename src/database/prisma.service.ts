@@ -21,6 +21,7 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
+  private keepAliveTimer?: NodeJS.Timeout;
 
   constructor() {
     super({
@@ -42,6 +43,24 @@ export class PrismaService
   async onModuleInit() {
     await this.$connect();
     this.logger.log('✅ Conexión a PostgreSQL establecida correctamente');
+
+    // El pooler gestionado (Supabase/PgBouncer) cierra conexiones que
+    // quedan inactivas por un rato, y el cliente de Prisma no se reconecta
+    // solo cuando eso pasa — la siguiente query simplemente cuelga hasta
+    // timeout. Un solo ping por ciclo no basta: Prisma mantiene su propio
+    // pool de `connection_limit` conexiones (ver DATABASE_URL) y un ping
+    // aislado solo toca UNA de ellas, dejando el resto inactivas igual. Se
+    // disparan tantos pings en paralelo como `connection_limit` para que
+    // cada conexión del pool reciba actividad en cada ciclo.
+    const POOL_SIZE = 5;
+    this.keepAliveTimer = setInterval(() => {
+      for (let i = 0; i < POOL_SIZE; i++) {
+        this.$queryRaw`SELECT 1`.catch((error: Error) => {
+          this.logger.warn(`Keep-alive de PostgreSQL falló: ${error.message}`);
+        });
+      }
+    }, 2 * 60 * 1000);
+    this.keepAliveTimer.unref?.();
 
     // Soft Delete — Filtra registros eliminados automáticamente y convierte
     // delete/deleteMany en update/updateMany. `$use` (client middleware) fue
@@ -87,6 +106,7 @@ export class PrismaService
   }
 
   async onModuleDestroy() {
+    if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
     await this.$disconnect();
     this.logger.log('🔌 Conexión a PostgreSQL cerrada');
   }

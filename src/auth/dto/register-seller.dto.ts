@@ -4,6 +4,7 @@ import {
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUrl,
   IsUUID,
@@ -78,19 +79,23 @@ export class RegisterSellerDto {
   @IsLongitude()
   longitude: number;
 
-  @ApiProperty({ description: 'URL (Supabase Storage) de la foto frontal del DNI' })
+  @ApiProperty({ description: 'URL (Supabase Storage) de la foto frontal del DNI', required: false })
+  @IsOptional()
   @IsUrl()
-  dniFrontUrl: string;
+  dniFrontUrl?: string;
 
-  @ApiProperty({ description: 'URL (Supabase Storage) de la foto posterior del DNI' })
+  @ApiProperty({ description: 'URL (Supabase Storage) de la foto posterior del DNI', required: false })
+  @IsOptional()
   @IsUrl()
-  dniBackUrl: string;
+  dniBackUrl?: string;
 
-  @ApiProperty({ description: 'URL (Supabase Storage) de la selfie' })
+  @ApiProperty({ description: 'URL (Supabase Storage) de la selfie', required: false })
+  @IsOptional()
   @IsUrl()
-  selfieUrl: string;
+  selfieUrl?: string;
 
-  @ApiProperty({ description: 'URL (Supabase Storage) de la prueba de vida' })
+  @ApiProperty({ description: 'URL (Supabase Storage) de la prueba de vida', required: false })
+  @IsOptional()
   @IsUrl()
-  lifeProofUrl: string;
+  lifeProofUrl?: string;
 }

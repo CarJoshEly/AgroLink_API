@@ -61,7 +61,7 @@ export class UsersService {
   async uploadAvatar(userId: string, file?: Express.Multer.File) {
     this.storageService.validateImage(file);
     const user = await this.findUserOrThrow(userId);
-    const url = await this.storageService.uploadImage(file!, 'avatars');
+    const url = await this.storageService.uploadImage(file!, `avatars/${userId}`);
     await this.storageService.deleteImage(user.avatarUrl);
 
     const updated = await this.prisma.user.update({
@@ -97,11 +97,12 @@ export class UsersService {
       throw new ForbiddenException('Solo los vendedores pueden enviar documentos de verificación');
     }
 
+    const identityPrefix = `identity/${userId}`;
     const [dniFront, dniBack, selfie, lifeProof] = await Promise.all([
-      this.uploadOrKeep(files.dniFront?.[0], 'identity', sellerProfile.identityVerification?.dniFrontUrl),
-      this.uploadOrKeep(files.dniBack?.[0], 'identity', sellerProfile.identityVerification?.dniBackUrl),
-      this.uploadOrKeep(files.selfie?.[0], 'identity', sellerProfile.identityVerification?.selfieUrl),
-      this.uploadOrKeep(files.lifeProof?.[0], 'identity', sellerProfile.identityVerification?.lifeProofUrl),
+      this.uploadOrKeep(files.dniFront?.[0], identityPrefix, sellerProfile.identityVerification?.dniFrontUrl),
+      this.uploadOrKeep(files.dniBack?.[0], identityPrefix, sellerProfile.identityVerification?.dniBackUrl),
+      this.uploadOrKeep(files.selfie?.[0], identityPrefix, sellerProfile.identityVerification?.selfieUrl),
+      this.uploadOrKeep(files.lifeProof?.[0], identityPrefix, sellerProfile.identityVerification?.lifeProofUrl),
     ]);
 
     if (!dniFront || !dniBack || !selfie || !lifeProof) {

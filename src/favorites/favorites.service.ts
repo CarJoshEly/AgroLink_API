@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ProductStatus, VerificationStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, ProductStatus, VerificationStatus } from '@prisma/client';
 import { PrismaService } from '../database';
 import { PaginationDto } from '../common/dto';
 
@@ -13,7 +13,7 @@ export class FavoritesService {
     if (product.status !== ProductStatus.ACTIVE) {
       throw new BadRequestException('El producto no está disponible');
     }
-    return this.prisma.favorite.create({ data: { userId, productId } });
+    return this.createFavorite({ userId, productId }, 'Ya tienes este producto en tus favoritos');
   }
 
   async removeProductFavorite(userId: string, productId: string) {
@@ -53,7 +53,7 @@ export class FavoritesService {
     if (seller.verificationStatus !== VerificationStatus.VERIFIED) {
       throw new BadRequestException('El vendedor no está disponible');
     }
-    return this.prisma.favorite.create({ data: { userId, sellerId } });
+    return this.createFavorite({ userId, sellerId }, 'Ya tienes este vendedor en tus favoritos');
   }
 
   async removeSellerFavorite(userId: string, sellerId: string) {
@@ -80,5 +80,19 @@ export class FavoritesService {
       this.prisma.favorite.count({ where }),
     ]);
     return { data, total, page: query.page ?? 1, limit: query.limit ?? 10 };
+  }
+
+  private async createFavorite(
+    data: { userId: string; productId: string } | { userId: string; sellerId: string },
+    duplicateMessage: string,
+  ) {
+    try {
+      return await this.prisma.favorite.create({ data });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(duplicateMessage);
+      }
+      throw error;
+    }
   }
 }

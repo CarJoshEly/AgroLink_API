@@ -121,21 +121,11 @@ export class AuthService {
         },
       });
 
-      const sellerProfile = await tx.sellerProfile.create({
+      await tx.sellerProfile.create({
         data: {
           userId: created.id,
           businessName: dto.businessName,
           dni: dto.dni,
-        },
-      });
-
-      await tx.identityVerification.create({
-        data: {
-          sellerProfileId: sellerProfile.id,
-          dniFrontUrl: dto.dniFrontUrl,
-          dniBackUrl: dto.dniBackUrl,
-          selfieUrl: dto.selfieUrl,
-          lifeProofUrl: dto.lifeProofUrl,
         },
       });
 
