@@ -11,6 +11,7 @@ import { AuthService } from '../auth';
 import { StorageService } from '../storage';
 import { NotificationsService } from '../notifications';
 import { AuditLogService } from '../audit';
+import { MailService } from '../mail';
 import {
   DeleteAccountDto,
   ListSellersQueryDto,
@@ -36,6 +37,7 @@ export class UsersService {
     private readonly storageService: StorageService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
+    private readonly mailService: MailService,
   ) {}
 
   // --------------------------------------------------------------------
@@ -91,7 +93,7 @@ export class UsersService {
   async upsertIdentityVerification(userId: string, files: IdentityFiles) {
     const sellerProfile = await this.prisma.sellerProfile.findUnique({
       where: { userId },
-      include: { identityVerification: true },
+      include: { identityVerification: true, user: { select: { name: true, email: true } } },
     });
     if (!sellerProfile) {
       throw new ForbiddenException('Solo los vendedores pueden enviar documentos de verificación');
@@ -139,6 +141,16 @@ export class UsersService {
         data: { verificationStatus: VerificationStatus.PENDING },
       });
     }
+
+    // Best-effort: un correo que falla no debe tumbar la subida de documentos
+    // (MailService ya se traga sus propios errores internamente).
+    await this.mailService.sendSellerVerificationSubmittedEmail({
+      sellerId: sellerProfile.id,
+      businessName: sellerProfile.businessName,
+      dni: sellerProfile.dni,
+      sellerName: sellerProfile.user.name,
+      sellerEmail: sellerProfile.user.email,
+    });
 
     return identityVerification;
   }
@@ -370,6 +382,13 @@ export class UsersService {
       await this.notificationsService.create(
         seller.userId,
         opts.notificationType,
+        opts.notificationTitle ?? '',
+        opts.notificationMessage ?? '',
+      );
+      // La notificación in-app no sirve de nada si el vendedor no vuelve a
+      // abrir la app — el correo es lo que de verdad le avisa.
+      await this.mailService.sendSellerVerificationStatusEmail(
+        { email: seller.user.email, name: seller.user.name },
         opts.notificationTitle ?? '',
         opts.notificationMessage ?? '',
       );
