@@ -62,7 +62,10 @@ export class ProductsController {
   @Post()
   @Roles(UserRole.SELLER)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Publicar un producto (vendedor verificado)' })
+  @ApiOperation({
+    summary:
+      'Publicar un producto (vendedor; no requiere estar verificado — solo se muestra en el marketplace público una vez verificado)',
+  })
   @ApiCreatedResponseData(CreateProductDto)
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateProductDto) {
     return this.productsService.create(user.sub, dto);

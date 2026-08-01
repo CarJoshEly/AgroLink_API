@@ -188,6 +188,59 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('cancelMine', () => {
+    const order = {
+      id: 'order-1',
+      buyerId: 'buyer-1',
+      status: OrderStatus.PENDING,
+      seller: { userId: 'seller-user-1' },
+    };
+
+    it('rechaza a un comprador que no es dueño del pedido', async () => {
+      prisma.order.findUnique.mockResolvedValue(order as any);
+      await expect(service.cancelMine('order-1', 'otro-comprador', {})).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rechaza cancelar un pedido que ya no está pendiente', async () => {
+      prisma.order.findUnique.mockResolvedValue({ ...order, status: OrderStatus.CONFIRMED } as any);
+      await expect(service.cancelMine('order-1', 'buyer-1', {})).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('lanza NotFoundException si el pedido no existe', async () => {
+      prisma.order.findUnique.mockResolvedValue(null);
+      await expect(service.cancelMine('no-existe', 'buyer-1', {})).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('cancela un pedido pendiente propio y notifica al vendedor', async () => {
+      prisma.order.findUnique.mockResolvedValue(order as any);
+      prisma.order.update.mockResolvedValue({ ...order, status: OrderStatus.CANCELLED } as any);
+      prisma.orderStatusHistory.create.mockResolvedValue({} as any);
+
+      await service.cancelMine('order-1', 'buyer-1', { reason: 'Cambié de opinión' });
+
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CANCELLED }) }),
+      );
+      expect(prisma.orderStatusHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ changedBy: 'buyer-1', note: 'Cambié de opinión' }),
+        }),
+      );
+      expect(notificationsService.create).toHaveBeenCalledWith(
+        'seller-user-1',
+        expect.anything(),
+        expect.any(String),
+        expect.any(String),
+      );
+    });
+  });
+
   describe('findById — control de propiedad', () => {
     const order = {
       id: 'order-1',

@@ -146,7 +146,14 @@ export class AuthService {
   // --------------------------------------------------------------------
 
   async login(dto: LoginDto, meta: RequestMeta) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // Incluye sellerProfile para que el front (web) pueda decidir a dónde
+    // redirigir justo después del login (p. ej. `/vendedor/dashboard`) sin
+    // tener que pedir `/users/me` aparte — antes venía `undefined` aquí y
+    // un vendedor recién logueado caía en el home de comprador por error.
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: { sellerProfile: true },
+    });
     if (!user) {
       this.securityLogger.warn(`Intento de login con correo inexistente: ${dto.email} — ip=${meta.ipAddress}`);
       throw new UnauthorizedException('Credenciales inválidas');

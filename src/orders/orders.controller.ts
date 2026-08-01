@@ -86,6 +86,14 @@ export class OrdersController {
     return this.ordersService.reject(id, { userId: user.sub, role: user.role as UserRole }, dto);
   }
 
+  @Patch(':id/cancel-mine')
+  @Roles(UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Cancelar mi propia solicitud de compra mientras está pendiente (comprador)' })
+  @ApiOkResponseData(RejectOrderDto)
+  cancelMine(@Param('id') id: string, @CurrentUser() user: JwtPayload, @Body() dto: RejectOrderDto) {
+    return this.ordersService.cancelMine(id, user.sub, dto);
+  }
+
   @Patch(':id/prepare')
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Marcar un pedido como en preparación (vendedor)' })

@@ -37,7 +37,7 @@ export class FavoritesService {
           product: {
             include: {
               images: { take: 1, orderBy: { order: 'asc' } },
-              seller: { select: { id: true, businessName: true } },
+              seller: { select: { id: true, businessName: true, verificationStatus: true } },
             },
           },
         },

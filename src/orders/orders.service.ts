@@ -271,6 +271,58 @@ export class OrdersService {
   }
 
   // --------------------------------------------------------------------
+  // CANCELAR (COMPRADOR)
+  // --------------------------------------------------------------------
+
+  /**
+   * A diferencia de `cancel()` (vendedor/admin, para pedidos ya CONFIRMED o
+   * PREPARING), esta es la única cancelación que puede iniciar el propio
+   * comprador — y solo mientras el pedido sigue PENDING, porque `accept()`
+   * es el paso que reserva stock: antes de eso no hay inventario que revertir.
+   */
+  async cancelMine(id: string, buyerId: string, dto: RejectOrderDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { seller: true },
+    });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (order.buyerId !== buyerId) {
+      throw new ForbiddenException('No tienes permiso para cancelar este pedido');
+    }
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Solo puedes cancelar tu solicitud mientras está pendiente');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: id,
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.CANCELLED,
+          changedBy: buyerId,
+          note: dto.reason,
+        },
+      });
+      return result;
+    });
+
+    await this.notificationsService.create(
+      order.seller.userId,
+      NotificationType.ORDER_CANCELLED,
+      'Solicitud de compra cancelada',
+      dto.reason
+        ? `El comprador canceló su solicitud de compra: ${dto.reason}`
+        : 'El comprador canceló su solicitud de compra.',
+    );
+
+    return updated;
+  }
+
+  // --------------------------------------------------------------------
   // PREPARAR / ENTREGAR / CANCELAR
   // --------------------------------------------------------------------
 

@@ -1,12 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import {
-  InventoryMovementType,
-  Prisma,
-  ProductImage,
-  ProductStatus,
-  UserRole,
-  VerificationStatus,
-} from '@prisma/client';
+import { InventoryMovementType, Prisma, ProductImage, ProductStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { StorageService } from '../storage';
 import { CreateProductDto, ListProductsQueryDto, UpdateProductDto, UpdateStockDto } from './dto';
@@ -26,10 +19,18 @@ export class ProductsService {
   // CREACIÓN
   // --------------------------------------------------------------------
 
+  /**
+   * A propósito NO exige `VerificationStatus.VERIFIED` — modelo estilo eBay:
+   * cualquier vendedor puede publicar desde que se registra, verificado o
+   * no. `findMany` (marketplace público) tampoco filtra por verificación —
+   * el producto se ve igual, solo que sin el sello de confianza junto al
+   * nombre del vendedor (ver `PUBLIC_SELLER_SELECT` / `VerificationBadge` en
+   * AgroLink_WEB / `AlStatusBadge.verification` en AgroLink_MOVIL).
+   */
   async create(sellerUserId: string, dto: CreateProductDto) {
     const sellerProfile = await this.prisma.sellerProfile.findUnique({ where: { userId: sellerUserId } });
-    if (!sellerProfile || sellerProfile.verificationStatus !== VerificationStatus.VERIFIED) {
-      throw new ForbiddenException('Solo los vendedores verificados pueden publicar productos');
+    if (!sellerProfile) {
+      throw new ForbiddenException('No tienes un perfil de vendedor');
     }
     await this.assertCategoryUsable(dto.categoryId);
 
@@ -51,11 +52,18 @@ export class ProductsService {
   // BÚSQUEDA / LISTADO
   // --------------------------------------------------------------------
 
+  /**
+   * A propósito NO filtra por `seller.verificationStatus` — un vendedor sin
+   * verificar sí aparece en el marketplace público (modelo estilo eBay: se
+   * puede vender sin verificarse, pero sin el sello de confianza). El
+   * cliente (`PUBLIC_SELLER_SELECT` incluye `verificationStatus`) es quien
+   * decide cómo mostrar esa insignia — ver `VerificationBadge` en
+   * AgroLink_WEB y `AlStatusBadge.verification` en AgroLink_MOVIL.
+   */
   async findMany(query: ListProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
       ...this.buildFilters(query),
       status: ProductStatus.ACTIVE,
-      seller: { verificationStatus: VerificationStatus.VERIFIED },
     };
     return this.paginate(where, query);
   }

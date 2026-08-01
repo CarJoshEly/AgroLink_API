@@ -50,12 +50,20 @@ export class MailService {
     }
   }
 
+  /**
+   * Incluye el token tanto en el link (para quien abra el correo desde la
+   * web, donde `${webAppUrl}/verificar-email` lo valida solo) como en texto
+   * plano aparte (para quien esté en la app móvil, que no tiene forma de
+   * abrir ese link dentro de la app — debe copiar/pegar el código a mano en
+   * la pantalla de verificación).
+   */
   async sendVerificationEmail(user: MailUser, token: string): Promise<void> {
     const link = `${this.webAppUrl}/verificar-email?token=${token}`;
     await this.dispatch(
       user.email,
       'Verifica tu correo — AgroLink Honduras',
-      `Hola ${user.name}, activa tu cuenta aquí: ${link}`,
+      `Hola ${user.name}, activa tu cuenta aquí: ${link}\n\n` +
+        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de verificación:\n${token}`,
     );
   }
 
@@ -64,7 +72,8 @@ export class MailService {
     await this.dispatch(
       user.email,
       'Recupera tu contraseña — AgroLink Honduras',
-      `Hola ${user.name}, restablece tu contraseña aquí: ${link}`,
+      `Hola ${user.name}, restablece tu contraseña aquí: ${link}\n\n` +
+        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de restablecimiento:\n${token}`,
     );
   }
 
