@@ -1,0 +1,57 @@
+# Blueprint de Render (https://render.com/docs/blueprint-spec) — despliegue
+# reproducible del backend. Crear el servicio vía "New > Blueprint" en el
+# dashboard de Render apuntando a este repo hace que Render lea este archivo
+# solo; los env vars marcados `sync: false` no tienen valor aquí a propósito
+# (son secretos) — Render pide llenarlos a mano una vez, en su dashboard.
+services:
+  - type: web
+    name: agrolink-api
+    runtime: node
+    plan: free
+    branch: JosephBranch
+    buildCommand: npm ci && npx prisma migrate deploy && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PREFIX
+        value: api
+      - key: API_VERSION
+        value: v1
+      - key: JWT_EXPIRATION
+        value: 15m
+      - key: JWT_REFRESH_EXPIRATION
+        value: 7d
+      - key: THROTTLE_TTL
+        value: "60000"
+      - key: THROTTLE_LIMIT
+        value: "100"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: WEB_APP_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: ADMIN_NOTIFY_EMAIL
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+    # `PORT` NO se declara — Render lo inyecta solo y `main.ts` ya lee
+    # `process.env.PORT`, fijarlo aquí lo pisaría con un valor incorrecto.

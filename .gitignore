@@ -4,7 +4,8 @@
 
 # Dependencias
 node_modules/
-package-lock.json
+# package-lock.json SÍ se versiona a propósito — `npm ci` (usado en el build
+# de Render) lo necesita para instalar versiones reproducibles.
 
 # Build
 dist/
