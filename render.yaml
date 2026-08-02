@@ -9,7 +9,11 @@ services:
     runtime: node
     plan: free
     branch: JosephBranch
-    buildCommand: npm ci && npx prisma migrate deploy && npm run build
+    # `npm install` en vez de `npm ci`: ya nos mordió una vez un lockfile
+    # marcado como "en sync" localmente pero rechazado por un npm distinto
+    # en Render (paquetes opcionales de plataforma, ver historial). `install`
+    # tolera esa clase de drift en vez de fallar el build entero por eso.
+    buildCommand: npm install && npx prisma migrate deploy && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
