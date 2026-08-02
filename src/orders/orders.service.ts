@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import {
   CartStatus,
   InventoryMovementType,
+  NotificationTargetType,
   NotificationType,
   OrderStatus,
   Prisma,
@@ -104,6 +105,7 @@ export class OrdersService {
         NotificationType.NEW_ORDER,
         'Nueva solicitud de compra',
         `Has recibido una nueva solicitud de compra por L${order.totalAmount}.`,
+        this.orderTarget(order.id),
       );
     }
 
@@ -153,6 +155,26 @@ export class OrdersService {
         items: { include: { product: true } },
         seller: { select: { id: true, businessName: true, userId: true } },
         buyer: { select: { id: true, name: true } },
+        // Sprint 7: el detalle de pedido es donde el comprador escribe sus
+        // reseñas (solo aplica si `status === DELIVERED`, ver
+        // `ReviewsService.createProductReview/createSellerReview`) — con
+        // esto el cliente sabe, sin una consulta aparte, si un item/el
+        // vendedor ya tiene reseña y en qué estado de moderación quedó.
+        productReviews: {
+          select: { id: true, orderItemId: true, rating: true, comment: true, moderationStatus: true },
+        },
+        sellerReview: {
+          select: {
+            id: true,
+            qualityScore: true,
+            responseTimeScore: true,
+            complianceScore: true,
+            attentionScore: true,
+            trustScore: true,
+            comment: true,
+            moderationStatus: true,
+          },
+        },
       },
     });
     if (!order) throw new NotFoundException('Pedido no encontrado');
@@ -230,6 +252,7 @@ export class OrdersService {
       NotificationType.ORDER_ACCEPTED,
       'Pedido aceptado',
       'El vendedor aceptó tu solicitud de compra.',
+      this.orderTarget(id),
     );
 
     return updated;
@@ -265,6 +288,7 @@ export class OrdersService {
       dto.reason
         ? `Tu solicitud de compra fue rechazada: ${dto.reason}`
         : 'Tu solicitud de compra fue rechazada por el vendedor.',
+      this.orderTarget(id),
     );
 
     return updated;
@@ -317,6 +341,7 @@ export class OrdersService {
       dto.reason
         ? `El comprador canceló su solicitud de compra: ${dto.reason}`
         : 'El comprador canceló su solicitud de compra.',
+      this.orderTarget(id),
     );
 
     return updated;
@@ -350,6 +375,7 @@ export class OrdersService {
       NotificationType.ORDER_PREPARING,
       'Pedido en preparación',
       'El vendedor está preparando tu pedido.',
+      this.orderTarget(id),
     );
 
     return updated;
@@ -382,6 +408,7 @@ export class OrdersService {
       NotificationType.ORDER_DELIVERED,
       'Pedido entregado',
       'Tu pedido ha sido entregado.',
+      this.orderTarget(id),
     );
 
     await this.transactionsService.recordForDeliveredOrder(order);
@@ -452,6 +479,7 @@ export class OrdersService {
       dto.reason
         ? `Tu pedido fue cancelado: ${dto.reason}`
         : 'Tu pedido fue cancelado por el vendedor.',
+      this.orderTarget(id),
     );
 
     return updated;
@@ -541,6 +569,11 @@ export class OrdersService {
       throw new ForbiddenException('No tienes permiso para gestionar este pedido');
     }
     return order;
+  }
+
+  /** Deep link de notificación hacia este pedido (Sprint 8). */
+  private orderTarget(orderId: string) {
+    return { targetType: NotificationTargetType.ORDER, targetId: orderId };
   }
 
   private buildDateFilter(query: ListOrdersQueryDto): Prisma.OrderWhereInput {

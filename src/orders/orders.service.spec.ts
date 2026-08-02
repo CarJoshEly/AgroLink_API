@@ -1,6 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { CartStatus, OrderStatus, ProductStatus, UserRole, VerificationStatus } from '@prisma/client';
+import {
+  CartStatus,
+  NotificationTargetType,
+  OrderStatus,
+  ProductStatus,
+  UserRole,
+  VerificationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
 import { TransactionsService } from '../finance';
@@ -237,6 +244,7 @@ describe('OrdersService', () => {
         expect.anything(),
         expect.any(String),
         expect.any(String),
+        { targetType: NotificationTargetType.ORDER, targetId: 'order-1' },
       );
     });
   });

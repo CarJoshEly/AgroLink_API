@@ -98,6 +98,15 @@ enum NotificationType {
   PAYMENT_UPDATE
 }
 
+/// A qué entidad navegar al tocar una notificación (deep link). Opcional a
+/// propósito — no todas las notificaciones tienen un destino navegable
+/// (p. ej. SELLER_APPROVED lleva a "mi verificación", que no necesita ID).
+enum NotificationTargetType {
+  ORDER
+  PRODUCT
+  SELLER
+}
+
 enum PaymentProvider {
   PAYPAL
   CREDIT_CARD
@@ -529,14 +538,16 @@ model Report {
 // --------------------------------------------------------------------------
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  title     String
-  message   String
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
+  id         String                  @id @default(uuid())
+  userId     String
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String
+  isRead     Boolean                 @default(false)
+  targetType NotificationTargetType?
+  targetId   String?
+  createdAt  DateTime                @default(now())
 
   @@index([userId, isRead])
   @@map("notifications")

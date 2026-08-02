@@ -1,5 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, OrderStatus, ReviewModerationStatus, UserRole } from '@prisma/client';
+import {
+  NotificationTargetType,
+  NotificationType,
+  OrderStatus,
+  ReviewModerationStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
 import { AuditLogService } from '../audit';
@@ -57,6 +63,7 @@ export class ReviewsService {
       NotificationType.NEW_REVIEW,
       'Nueva reseña recibida',
       'Un comprador ha dejado una reseña sobre uno de tus productos.',
+      { targetType: NotificationTargetType.PRODUCT, targetId: orderItem.productId },
     );
 
     return review;
@@ -94,6 +101,7 @@ export class ReviewsService {
       NotificationType.NEW_REVIEW,
       'Nueva reseña recibida',
       'Un comprador ha dejado una reseña sobre tu perfil de vendedor.',
+      { targetType: NotificationTargetType.SELLER, targetId: order.sellerId },
     );
 
     return review;

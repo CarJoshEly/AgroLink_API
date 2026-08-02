@@ -1,20 +1,44 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationTargetType, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../database';
 import { ListNotificationsQueryDto } from './dto';
+
+/** A qué navegar al tocar la notificación — omitirlo es válido (no todas lo tienen). */
+export type NotificationTarget = { targetType: NotificationTargetType; targetId: string };
 
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(userId: string, type: NotificationType, title: string, message: string) {
-    return this.prisma.notification.create({ data: { userId, type, title, message } });
+  create(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    target?: NotificationTarget,
+  ) {
+    return this.prisma.notification.create({
+      data: { userId, type, title, message, targetType: target?.targetType, targetId: target?.targetId },
+    });
   }
 
-  createMany(userIds: string[], type: NotificationType, title: string, message: string) {
+  createMany(
+    userIds: string[],
+    type: NotificationType,
+    title: string,
+    message: string,
+    target?: NotificationTarget,
+  ) {
     if (userIds.length === 0) return Promise.resolve({ count: 0 });
     return this.prisma.notification.createMany({
-      data: userIds.map((userId) => ({ userId, type, title, message })),
+      data: userIds.map((userId) => ({
+        userId,
+        type,
+        title,
+        message,
+        targetType: target?.targetType,
+        targetId: target?.targetId,
+      })),
     });
   }
 

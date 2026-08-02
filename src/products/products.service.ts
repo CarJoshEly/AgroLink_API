@@ -62,7 +62,7 @@ export class ProductsService {
    */
   async findMany(query: ListProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
-      ...this.buildFilters(query),
+      ...(await this.buildFilters(query)),
       status: ProductStatus.ACTIVE,
     };
     return this.paginate(where, query);
@@ -73,7 +73,7 @@ export class ProductsService {
     if (!sellerProfile) throw new ForbiddenException('No tienes un perfil de vendedor');
 
     const where: Prisma.ProductWhereInput = {
-      ...this.buildFilters(query),
+      ...(await this.buildFilters(query)),
       sellerId: sellerProfile.id,
     };
     return this.paginate(where, query);
@@ -81,7 +81,7 @@ export class ProductsService {
 
   /** Listado sin restricción de estado ni verificación del vendedor, solo para administradores. */
   async findAllAdmin(query: ListProductsQueryDto) {
-    return this.paginate(this.buildFilters(query), query);
+    return this.paginate(await this.buildFilters(query), query);
   }
 
   async findById(id: string) {
@@ -197,9 +197,9 @@ export class ProductsService {
   // HELPERS PRIVADOS
   // --------------------------------------------------------------------
 
-  private buildFilters(query: ListProductsQueryDto): Prisma.ProductWhereInput {
+  private async buildFilters(query: ListProductsQueryDto): Promise<Prisma.ProductWhereInput> {
     return {
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+      ...(query.categoryId ? { categoryId: { in: await this.resolveCategoryIds(query.categoryId) } } : {}),
       ...(query.sellerId ? { sellerId: query.sellerId } : {}),
       ...(query.unit ? { unit: query.unit } : {}),
       ...(query.status ? { status: query.status } : {}),
@@ -220,6 +220,24 @@ export class ProductsService {
           }
         : {}),
     };
+  }
+
+  /**
+   * Los productos siempre se categorizan a nivel de hoja (ver
+   * `prisma/seed.ts` — `categoryId: leaf.id`), nunca en la categoría raíz.
+   * Filtrar por una raíz con match exacto (`categoryId: query.categoryId`)
+   * por eso siempre devolvía cero resultados: los chips de "Categorías" del
+   * home solo muestran raíces. Se resuelve la raíz a [ella misma, ...sus
+   * hijas directas] para que el filtro sí encuentre algo; si ya es una hoja,
+   * `children` viene vacío y el resultado es solo `[categoryId]` (mismo
+   * comportamiento de antes).
+   */
+  private async resolveCategoryIds(categoryId: string): Promise<string[]> {
+    const children = await this.prisma.category.findMany({
+      where: { parentId: categoryId },
+      select: { id: true },
+    });
+    return [categoryId, ...children.map((c) => c.id)];
   }
 
   private async paginate(where: Prisma.ProductWhereInput, query: ListProductsQueryDto) {
