@@ -62,16 +62,21 @@ async function bootstrap() {
   );
 
   // ─── Swagger / OpenAPI ───────────────────────────────────────
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-      docExpansion: 'none',
-    },
-    customSiteTitle: 'AgroLink Honduras API — Documentación',
-  });
+  // Solo fuera de producción — en prod expondría el mapa completo de la API
+  // (rutas, DTOs, roles) a cualquiera sin autenticación.
+  const swaggerEnabled = process.env.NODE_ENV !== 'production';
+  if (swaggerEnabled) {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+        docExpansion: 'none',
+      },
+      customSiteTitle: 'AgroLink Honduras API — Documentación',
+    });
+  }
 
   // ─── Iniciar servidor ────────────────────────────────────────
   const port = parseInt(process.env.PORT ?? '3000', 10) || 3000
@@ -84,7 +89,9 @@ async function bootstrap() {
   logger.log(`🌿  Entorno:    ${process.env.NODE_ENV || 'development'}`);
   logger.log(`🌿  Puerto:     ${port}`);
   logger.log(`🌿  API:        http://localhost:${port}/${apiPrefix}/${apiVersion}`);
-  logger.log(`🌿  Swagger:    http://localhost:${port}/${apiPrefix}/docs`);
+  if (swaggerEnabled) {
+    logger.log(`🌿  Swagger:    http://localhost:${port}/${apiPrefix}/docs`);
+  }
   logger.log(`🌿  Health:     http://localhost:${port}/${apiPrefix}/${apiVersion}/health`);
   logger.log(`🌿 =========================================`);
 }

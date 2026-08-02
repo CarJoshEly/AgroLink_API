@@ -68,6 +68,10 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
           limit: parseInt(process.env.THROTTLE_LIMIT || '', 10) || 100,
         },
       ],
+      // Mensaje en español — por defecto el paquete manda el string técnico
+      // "ThrottlerException: Too Many Requests", que los clientes (móvil/web)
+      // muestran tal cual al usuario si no lo sobreescribimos aquí.
+      errorMessage: 'Demasiados intentos. Espera un momento antes de volver a intentarlo.',
     }),
 
     // Módulo de base de datos (global)
