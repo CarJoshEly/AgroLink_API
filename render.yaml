@@ -13,7 +13,10 @@ services:
     # marcado como "en sync" localmente pero rechazado por un npm distinto
     # en Render (paquetes opcionales de plataforma, ver historial). `install`
     # tolera esa clase de drift en vez de fallar el build entero por eso.
-    buildCommand: npm install && npx prisma migrate deploy && npm run build
+    # `--include=dev`: con NODE_ENV=production (necesario en runtime, ver
+    # envVars abajo) npm omite devDependencies por defecto — y ahí vive
+    # @nestjs/cli/typescript, que `nest build` sí necesita.
+    buildCommand: npm install --include=dev && npx prisma migrate deploy && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
