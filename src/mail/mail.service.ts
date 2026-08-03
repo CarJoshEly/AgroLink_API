@@ -136,7 +136,17 @@ export class MailService {
       // Un correo que falla no debe tumbar el flujo que lo dispara (registro,
       // forgot-password, etc.) — esos endpoints ya devuelven el token en modo
       // desarrollo como respaldo.
-      this.logger.error(`Error enviando correo a ${to}`, err as Error);
+      //
+      // `Logger.error(message, trace)` espera un STRING en `trace` — pasarle
+      // el objeto Error directo (como estaba antes) lo deja fuera del log
+      // por el mismatch de tipo, así que en producción nunca se veía el
+      // motivo real del fallo (auth, conexión, etc.), solo esta línea vacía.
+      const error = err as Error & { code?: string; response?: string; responseCode?: number };
+      this.logger.error(
+        `Error enviando correo a ${to}: ${error.message} ` +
+          `(code=${error.code ?? 'n/a'}, responseCode=${error.responseCode ?? 'n/a'}, response=${error.response ?? 'n/a'})`,
+        error.stack,
+      );
     }
   }
 }
