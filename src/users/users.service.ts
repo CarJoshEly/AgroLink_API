@@ -161,11 +161,20 @@ export class UsersService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { isActive: false, deletedAt: new Date() },
+      // `email` sigue siendo @unique a nivel de columna — la fila eliminada
+      // no se borra físicamente (soft delete), así que sin liberar el
+      // correo aquí, esa dirección queda bloqueada para siempre y nadie
+      // (ni la misma persona) puede volver a registrarse con ella.
+      data: { isActive: false, deletedAt: new Date(), email: this.freedEmail(userId) },
     });
     await this.authService.logoutAll(userId);
 
     return { message: 'Tu cuenta ha sido eliminada' };
+  }
+
+  /** Email de reemplazo para una fila soft-deleted — libera la dirección original para reuso. */
+  private freedEmail(userId: string): string {
+    return `deleted+${userId}@agrolink.invalid`;
   }
 
   // --------------------------------------------------------------------
@@ -230,14 +239,15 @@ export class UsersService {
   }
 
   async deleteUser(id: string, adminId: string) {
-    await this.findUserOrThrow(id);
+    const user = await this.findUserOrThrow(id);
     await this.prisma.user.update({
       where: { id },
-      data: { isActive: false, deletedAt: new Date() },
+      data: { isActive: false, deletedAt: new Date(), email: this.freedEmail(id) },
     });
     await this.authService.logoutAll(id);
 
-    await this.auditLogService.log(adminId, 'USER_DELETED', 'User', id);
+    // Guarda el correo original en el log — la fila ya lo pierde (ver `freedEmail`).
+    await this.auditLogService.log(adminId, 'USER_DELETED', 'User', id, { email: user.email });
 
     return { message: 'Usuario eliminado' };
   }
