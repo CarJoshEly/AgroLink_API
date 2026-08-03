@@ -41,8 +41,12 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    await this.$connect();
-    this.logger.log('✅ Conexión a PostgreSQL establecida correctamente');
+    try {
+      await this.$connect();
+      this.logger.log('✅ Conexión a PostgreSQL establecida correctamente');
+    } catch (error) {
+      this.logger.error(`❌ No se pudo conectar a PostgreSQL: ${(error as Error).message}`);
+    }
 
     // El pooler gestionado (Supabase/PgBouncer) cierra conexiones que
     // quedan inactivas por un rato, y el cliente de Prisma no se reconecta

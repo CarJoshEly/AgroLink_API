@@ -129,6 +129,45 @@ describe('OrdersService', () => {
       expect(prisma.order.create).toHaveBeenCalledTimes(2);
       expect(notificationsService.create).toHaveBeenCalledTimes(2);
     });
+
+    it('descuenta el stock y transiciona a OUT_OF_STOCK cuando llega a 0', async () => {
+      prisma.cart.findFirst.mockResolvedValue({
+        id: 'cart-1',
+        items: [
+          {
+            productId: 'p1',
+            quantity: 3,
+            product: {
+              id: 'p1',
+              name: 'Maíz',
+              stock: 3,
+              status: ProductStatus.ACTIVE,
+              deletedAt: null,
+              sellerId: 's1',
+              price: 100,
+              seller: { verificationStatus: VerificationStatus.VERIFIED },
+            },
+          },
+        ],
+      } as any);
+      prisma.order.create.mockResolvedValue({
+        id: 'order-1',
+        sellerId: 's1',
+        totalAmount: 300,
+        seller: { userId: 'seller-user-1' },
+      } as any);
+      prisma.product.update.mockResolvedValue({} as any);
+      prisma.inventoryMovement.createMany.mockResolvedValue({ count: 1 } as any);
+      prisma.orderStatusHistory.create.mockResolvedValue({} as any);
+      prisma.cart.update.mockResolvedValue({} as any);
+
+      await service.checkout('buyer-1');
+
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { stock: 0, status: ProductStatus.OUT_OF_STOCK } }),
+      );
+      expect(prisma.inventoryMovement.createMany).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('accept', () => {
@@ -141,33 +180,25 @@ describe('OrdersService', () => {
       seller: { userId: actor.userId },
     };
 
-    it('rechaza aceptar si el stock es insuficiente', async () => {
-      prisma.order.findUnique.mockResolvedValue(order as any);
-      prisma.product.findMany.mockResolvedValue([
-        { id: 'p1', name: 'Maíz', stock: 1, status: ProductStatus.ACTIVE },
-      ] as any);
-
+    it('rechaza aceptar un pedido que ya no está pendiente', async () => {
+      prisma.order.findUnique.mockResolvedValue({ ...order, status: OrderStatus.CONFIRMED } as any);
       await expect(service.accept('order-1', actor)).rejects.toThrow(BadRequestException);
     });
 
-    it('descuenta el stock, transiciona a OUT_OF_STOCK cuando llega a 0 y consulta los productos en un solo findMany', async () => {
+    // El stock se reserva en checkout() (ver ese describe), no aquí — accept()
+    // ya no toca inventario, solo transiciona el estado del pedido.
+    it('transiciona a CONFIRMED sin tocar stock y notifica al comprador', async () => {
       prisma.order.findUnique.mockResolvedValue(order as any);
-      prisma.product.findMany.mockResolvedValue([
-        { id: 'p1', name: 'Maíz', stock: 3, status: ProductStatus.ACTIVE },
-      ] as any);
-      prisma.product.update.mockResolvedValue({} as any);
-      prisma.inventoryMovement.createMany.mockResolvedValue({ count: 1 } as any);
       prisma.order.update.mockResolvedValue({ id: 'order-1', status: OrderStatus.CONFIRMED } as any);
       prisma.orderStatusHistory.create.mockResolvedValue({} as any);
 
       await service.accept('order-1', actor);
 
-      expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
-      expect(prisma.product.findUnique).not.toHaveBeenCalled();
-      expect(prisma.product.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { stock: 0, status: ProductStatus.OUT_OF_STOCK } }),
+      expect(prisma.product.findMany).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CONFIRMED }) }),
       );
-      expect(prisma.inventoryMovement.createMany).toHaveBeenCalledTimes(1);
       expect(notificationsService.create).toHaveBeenCalled();
     });
   });
@@ -200,6 +231,7 @@ describe('OrdersService', () => {
       id: 'order-1',
       buyerId: 'buyer-1',
       status: OrderStatus.PENDING,
+      items: [{ productId: 'p1', quantity: 2 }],
       seller: { userId: 'seller-user-1' },
     };
 
@@ -224,13 +256,24 @@ describe('OrdersService', () => {
       );
     });
 
-    it('cancela un pedido pendiente propio y notifica al vendedor', async () => {
+    it('cancela un pedido pendiente propio, restaura el stock reservado y notifica al vendedor', async () => {
       prisma.order.findUnique.mockResolvedValue(order as any);
+      prisma.product.findMany.mockResolvedValue([
+        { id: 'p1', name: 'Maíz', stock: 0, status: ProductStatus.OUT_OF_STOCK },
+      ] as any);
+      prisma.product.update.mockResolvedValue({} as any);
+      prisma.inventoryMovement.createMany.mockResolvedValue({ count: 1 } as any);
       prisma.order.update.mockResolvedValue({ ...order, status: OrderStatus.CANCELLED } as any);
       prisma.orderStatusHistory.create.mockResolvedValue({} as any);
 
       await service.cancelMine('order-1', 'buyer-1', { reason: 'Cambié de opinión' });
 
+      // Reservado en checkout (3 - 2 = ... este pedido reservó 2, stock quedó
+      // en 0) -> cancelar debe devolverlo a 2 y reactivar el producto.
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { stock: 2, status: ProductStatus.ACTIVE } }),
+      );
+      expect(prisma.inventoryMovement.createMany).toHaveBeenCalledTimes(1);
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CANCELLED }) }),
       );
