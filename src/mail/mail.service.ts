@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, type Transporter } from 'nodemailer';
+import { lookup } from 'node:dns/promises';
+
+const SMTP_HOST = 'smtp.gmail.com';
+const SMTP_PORT = 587;
 
 type MailUser = { email: string; name: string };
 
@@ -23,44 +27,69 @@ type SellerSubmission = {
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly transporter: Transporter | null;
+  private readonly gmailUser?: string;
+  private readonly gmailAppPassword?: string;
   private readonly fromAddress: string;
   private readonly webAppUrl: string;
   private readonly adminEmail: string;
 
   constructor(private readonly configService: ConfigService) {
-    const user = this.configService.get<string>('mail.gmailUser');
-    const appPassword = this.configService.get<string>('mail.gmailAppPassword');
+    this.gmailUser = this.configService.get<string>('mail.gmailUser');
+    this.gmailAppPassword = this.configService.get<string>('mail.gmailAppPassword');
     this.fromAddress = this.configService.get<string>('mail.fromAddress')!;
     this.webAppUrl = this.configService.get<string>('mail.webAppUrl')!;
     this.adminEmail = this.configService.get<string>('mail.adminEmail')!;
 
-    this.transporter =
-      user && appPassword
-        ? createTransport({
-            // Host/puerto explícitos (587 + STARTTLS) en vez del preset
-            // `service: 'gmail'` (fuerza 465/TLS implícito) — algunos hosts
-            // bloquean 465 saliente pero dejan pasar 587. Timeouts cortos a
-            // propósito: si el puerto igual está bloqueado, que falle rápido
-            // y se registre en el catch de `dispatch()` en vez de colgar la
-            // request hasta que el TimeoutInterceptor global (30s) la corte
-            // con un 408 que no dice nada del motivo real.
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            requireTLS: true,
-            auth: { user, pass: appPassword },
-            connectionTimeout: 10_000,
-            greetingTimeout: 10_000,
-            socketTimeout: 10_000,
-          })
-        : null;
-
-    if (!this.transporter) {
+    if (!this.gmailUser || !this.gmailAppPassword) {
       this.logger.warn(
         'GMAIL_USER / GMAIL_APP_PASSWORD no configuradas — los correos solo se registrarán en el log.',
       );
     }
+  }
+
+  /**
+   * `smtp.gmail.com` resuelve a IPv4 e IPv6. El resolutor propio de
+   * nodemailer (`dns.resolve4`/`resolve6`, consultas DNS directas) devuelve
+   * en Render solo la dirección IPv6, que no tiene ruta de salida
+   * (ENETUNREACH) — el resolutor del sistema operativo (`dns.lookup`, el
+   * mismo que usa cualquier otro cliente HTTP) sí resuelve IPv4
+   * correctamente. Se resuelve acá y se conecta directo a la IP en vez de
+   * dejar que nodemailer intente resolver el hostname él mismo.
+   */
+  private async createTransporter(): Promise<Transporter | null> {
+    if (!this.gmailUser || !this.gmailAppPassword) return null;
+
+    let host: string = SMTP_HOST;
+    try {
+      const resolved = await lookup(SMTP_HOST, { family: 4 });
+      host = resolved.address;
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo resolver ${SMTP_HOST} a IPv4 de antemano (${(err as Error).message}) — se usa el hostname tal cual.`,
+      );
+    }
+
+    return createTransport({
+      // Host/puerto explícitos (587 + STARTTLS) en vez del preset
+      // `service: 'gmail'` (fuerza 465/TLS implícito) — algunos hosts
+      // bloquean 465 saliente pero dejan pasar 587. Timeouts cortos a
+      // propósito: si el puerto igual está bloqueado, que falle rápido
+      // y se registre en el catch de `dispatch()` en vez de colgar la
+      // request hasta que el TimeoutInterceptor global (30s) la corte
+      // con un 408 que no dice nada del motivo real.
+      host,
+      port: SMTP_PORT,
+      secure: false,
+      requireTLS: true,
+      auth: { user: this.gmailUser, pass: this.gmailAppPassword },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 10_000,
+      // Se conecta por IP, no por hostname — sin esto el certificado TLS de
+      // Gmail (emitido para "smtp.gmail.com") no coincide con la IP y falla
+      // la validación.
+      tls: { servername: SMTP_HOST },
+    });
   }
 
   /**
@@ -120,12 +149,14 @@ export class MailService {
 
   private async dispatch(to: string, subject: string, body: string): Promise<void> {
     this.logger.log(`📧 Para: ${to} | Asunto: ${subject}\n${body}`);
-    if (!this.transporter) return;
 
     try {
+      const transporter = await this.createTransporter();
+      if (!transporter) return;
+
       // nodemailer tipa `SentMessageInfo` como `any` (ver @types/nodemailer) —
       // se afirma la forma mínima que de verdad se usa para no propagar `any`.
-      const info = (await this.transporter.sendMail({
+      const info = (await transporter.sendMail({
         from: this.fromAddress,
         to,
         subject,
