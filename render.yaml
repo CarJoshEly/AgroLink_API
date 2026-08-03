@@ -50,9 +50,7 @@ services:
         sync: false
       - key: SUPABASE_BUCKET
         sync: false
-      - key: GMAIL_USER
-        sync: false
-      - key: GMAIL_APP_PASSWORD
+      - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM_ADDRESS
         sync: false
