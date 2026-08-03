@@ -33,6 +33,7 @@ import { FavoritesModule } from './favorites';
 import { ReportsModule } from './reports';
 import { NotificationsModule } from './notifications';
 import { FinanceModule } from './finance';
+import { PaymentsModule } from './payments';
 import { AuditLogModule } from './audit';
 import { AdminModule } from './admin';
 
@@ -116,6 +117,9 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
 
     // Arquitectura financiera (métodos de pago, comisiones, transacciones)
     FinanceModule,
+
+    // Pasarela de pago PayPal (crear/capturar orden -> genera el pedido)
+    PaymentsModule,
 
     // Panel administrativo (estadísticas, auditoría, configuración, productos)
     AdminModule,

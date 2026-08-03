@@ -60,5 +60,19 @@ services:
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SECRET
+        sync: false
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_HNL_TO_USD_RATE
+        value: "24.70"
+      # URL pública de este mismo servicio — PayPal la necesita como
+      # return_url/cancel_url del checkout redirigido (ver
+      # payments/paypal-payments.service.ts). Debe coincidir con la URL real
+      # que Render asigna al servicio.
+      - key: API_PUBLIC_URL
+        value: https://agrolink-api-we44.onrender.com
     # `PORT` NO se declara — Render lo inyecta solo y `main.ts` ya lee
     # `process.env.PORT`, fijarlo aquí lo pisaría con un valor incorrecto.

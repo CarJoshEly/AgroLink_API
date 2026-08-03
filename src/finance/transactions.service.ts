@@ -43,10 +43,7 @@ export class TransactionsService {
         return;
       }
 
-      const paymentMethod =
-        (await this.prisma.paymentMethod.findFirst({
-          where: { isActive: true, provider: PaymentProvider.PAYPAL },
-        })) ?? (await this.prisma.paymentMethod.findFirst({ where: { isActive: true } }));
+      const paymentMethod = await this.findPaymentMethod(PaymentProvider.PAYPAL);
       if (!paymentMethod) {
         this.logger.warn(`No hay un método de pago activo; se omite transacción para pedido ${order.id}`);
         return;
@@ -69,6 +66,59 @@ export class TransactionsService {
     } catch (error) {
       this.logger.error(`Error registrando transacción para pedido ${order.id}`, error as Error);
     }
+  }
+
+  /**
+   * Se invoca justo después de que PayPal confirma la captura del pago
+   * (ver payments/paypal-payments.service.ts) — a diferencia de
+   * `recordForDeliveredOrder`, acá el dinero ya se cobró de verdad, así que
+   * la transacción nace COMPLETED en vez de PENDING. `externalReference`
+   * guarda el id de captura de PayPal para poder conciliar el pago después.
+   * No bloqueante por la misma razón que la de arriba: un fallo acá no debe
+   * deshacer un pedido que ya fue creado y ya fue cobrado.
+   */
+  async recordCompletedPaypalPayment(
+    order: { id: string; totalAmount: Prisma.Decimal | number },
+    externalReference: string,
+  ): Promise<void> {
+    try {
+      const existing = await this.prisma.transaction.findUnique({ where: { orderId: order.id } });
+      if (existing) return;
+
+      const commissionConfig = await this.commissionConfigService.getCurrent().catch(() => null);
+      const paymentMethod = await this.findPaymentMethod(PaymentProvider.PAYPAL);
+      if (!paymentMethod) {
+        this.logger.warn(`No hay un método de pago PayPal activo; se omite transacción para pedido ${order.id}`);
+        return;
+      }
+
+      const amount = Number(order.totalAmount);
+      const percentage = commissionConfig ? Number(commissionConfig.percentage) : 0;
+      const commissionAmount = Number(((amount * percentage) / 100).toFixed(2));
+      const now = new Date();
+
+      await this.prisma.transaction.create({
+        data: {
+          orderId: order.id,
+          paymentMethodId: paymentMethod.id,
+          amount,
+          commissionPercentage: percentage,
+          commissionAmount,
+          status: TransactionStatus.COMPLETED,
+          externalReference,
+          completedAt: now,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Error registrando pago de PayPal para pedido ${order.id}`, error as Error);
+    }
+  }
+
+  private async findPaymentMethod(provider: PaymentProvider) {
+    return (
+      (await this.prisma.paymentMethod.findFirst({ where: { isActive: true, provider } })) ??
+      (await this.prisma.paymentMethod.findFirst({ where: { isActive: true } }))
+    );
   }
 
   async findAll(query: ListTransactionsQueryDto) {

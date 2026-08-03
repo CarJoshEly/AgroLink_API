@@ -41,6 +41,26 @@ Resumen:
 | `SUPABASE_URL` / `SUPABASE_KEY` / `SUPABASE_BUCKET` | Storage de imágenes de producto y documentos de verificación |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` / `MAIL_FROM_ADDRESS` / `ADMIN_NOTIFY_EMAIL` | Envío de correo transaccional |
 | `GOOGLE_MAPS_API_KEY` | Geocoding y distancia comprador↔vendedor |
+| `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` / `PAYPAL_MODE` | App sandbox de PayPal (`developer.paypal.com` → *My Apps & Credentials*). Con los placeholders por defecto, `/payments/paypal/*` responde 503 |
+| `PAYPAL_HNL_TO_USD_RATE` | Tasa fija para convertir el total del carrito (HNL) a USD antes de crear la orden — PayPal no cobra en Lempiras |
+| `API_PUBLIC_URL` | URL pública de este backend (no la del frontend). PayPal la usa como `return_url`/`cancel_url` del checkout redirigido que abre el WebView de la app móvil |
+
+## Pasarela de pago (PayPal)
+
+`POST /payments/paypal/orders` crea la orden en la API real de PayPal (Orders
+v2) a partir del carrito del comprador — el monto SIEMPRE lo calcula el
+backend, nunca el cliente. `POST /payments/paypal/orders/:id/capture` captura
+el pago y, solo si PayPal confirma `COMPLETED`, genera la(s) solicitud(es) de
+compra (misma lógica que `POST /cart/checkout`) y registra la transacción
+como `COMPLETED` de inmediato (a diferencia del flujo sin pago, donde la
+transacción nace `PENDING` recién al entregar el pedido).
+
+Para probarlo de punta a punta hace falta una app sandbox de PayPal
+(gratuita): entra a [developer.paypal.com](https://developer.paypal.com) →
+*Apps & Credentials* → pestaña *Sandbox* → crea (o usa) una app, copia su
+**Client ID** y **Secret** a `PAYPAL_CLIENT_ID`/`PAYPAL_SECRET`, y usa una
+cuenta sandbox de comprador (*Sandbox* → *Accounts*, PayPal genera una
+personal de prueba automáticamente) para aprobar el pago al probar.
 
 ## Correr
 
