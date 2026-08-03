@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
@@ -11,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../database';
 import { MailService } from '../mail';
 import {
@@ -62,7 +63,10 @@ export class AuthService {
     await this.assertEmailAvailable(dto.email);
 
     const passwordHash = await this.hashPassword(dto.password);
-    const { token, expiresAt } = this.generateExpiringToken(EMAIL_VERIFICATION_TOKEN_TTL_MS);
+    const { token, expiresAt } = await this.generateUniqueCode(
+      EMAIL_VERIFICATION_TOKEN_TTL_MS,
+      (code) => this.isEmailVerificationCodeTaken(code),
+    );
 
     const user = await this.prisma.user.create({
       data: {
@@ -94,7 +98,10 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(dto.password);
-    const { token, expiresAt } = this.generateExpiringToken(EMAIL_VERIFICATION_TOKEN_TTL_MS);
+    const { token, expiresAt } = await this.generateUniqueCode(
+      EMAIL_VERIFICATION_TOKEN_TTL_MS,
+      (code) => this.isEmailVerificationCodeTaken(code),
+    );
 
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -244,7 +251,9 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     let token: string | undefined;
     if (user) {
-      const generated = this.generateExpiringToken(PASSWORD_RESET_TOKEN_TTL_MS);
+      const generated = await this.generateUniqueCode(PASSWORD_RESET_TOKEN_TTL_MS, (code) =>
+        this.isPasswordResetCodeTaken(code),
+      );
       token = generated.token;
       await this.prisma.user.update({
         where: { id: user.id },
@@ -334,7 +343,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     let token: string | undefined;
     if (user && !user.emailVerifiedAt) {
-      const generated = this.generateExpiringToken(EMAIL_VERIFICATION_TOKEN_TTL_MS);
+      const generated = await this.generateUniqueCode(
+        EMAIL_VERIFICATION_TOKEN_TTL_MS,
+        (code) => this.isEmailVerificationCodeTaken(code),
+      );
       token = generated.token;
       await this.prisma.user.update({
         where: { id: user.id },
@@ -387,8 +399,37 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private generateExpiringToken(ttlMs: number): { token: string; expiresAt: Date } {
-    return { token: randomBytes(32).toString('hex'), expiresAt: new Date(Date.now() + ttlMs) };
+  /**
+   * Código corto (6 dígitos) para pegar a mano — reemplaza el token largo
+   * anterior (32 bytes al azar). `isTaken` revisa la columna `@unique`
+   * correspondiente (email o password reset) porque, a diferencia de un
+   * token largo, la colisión con otro código ya emitido deja de ser
+   * astronómicamente improbable — se reintenta unas pocas veces antes de
+   * rendirse.
+   */
+  private async generateUniqueCode(
+    ttlMs: number,
+    isTaken: (code: string) => Promise<boolean>,
+  ): Promise<{ token: string; expiresAt: Date }> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const token = randomInt(0, 1_000_000).toString().padStart(6, '0');
+      if (!(await isTaken(token))) {
+        return { token, expiresAt: new Date(Date.now() + ttlMs) };
+      }
+    }
+    throw new InternalServerErrorException(
+      'No se pudo generar un código de verificación único. Intenta de nuevo.',
+    );
+  }
+
+  private async isEmailVerificationCodeTaken(code: string): Promise<boolean> {
+    const count = await this.prisma.user.count({ where: { emailVerificationToken: code } });
+    return count > 0;
+  }
+
+  private async isPasswordResetCodeTaken(code: string): Promise<boolean> {
+    const count = await this.prisma.user.count({ where: { passwordResetToken: code } });
+    return count > 0;
   }
 
   private hashPassword(password: string): Promise<string> {

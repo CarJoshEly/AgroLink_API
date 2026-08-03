@@ -135,7 +135,13 @@ export class AuthController {
     return this.authService.changePassword(user.sub, dto);
   }
 
+  // El código ahora es de 6 dígitos (antes, un token largo al azar) — con
+  // mucha menos entropía, un límite propio (aparte del global de 100/60s)
+  // importa para que no se pueda fuerza-bruta dentro de la ventana de
+  // validez de 30 min. 5/60s deja margen para un par de errores de tipeo
+  // sin abrir la puerta a probar miles de combinaciones.
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verificar correo electrónico / activar cuenta' })

@@ -38,8 +38,21 @@ export class MailService {
     this.transporter =
       user && appPassword
         ? createTransport({
-            service: 'gmail',
+            // Host/puerto explícitos (587 + STARTTLS) en vez del preset
+            // `service: 'gmail'` (fuerza 465/TLS implícito) — algunos hosts
+            // bloquean 465 saliente pero dejan pasar 587. Timeouts cortos a
+            // propósito: si el puerto igual está bloqueado, que falle rápido
+            // y se registre en el catch de `dispatch()` en vez de colgar la
+            // request hasta que el TimeoutInterceptor global (30s) la corte
+            // con un 408 que no dice nada del motivo real.
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            requireTLS: true,
             auth: { user, pass: appPassword },
+            connectionTimeout: 10_000,
+            greetingTimeout: 10_000,
+            socketTimeout: 10_000,
           })
         : null;
 

@@ -39,8 +39,14 @@ export const DEFAULT_REQUEST_TIMEOUT = 30000;
 /** Número de rondas para bcrypt */
 export const BCRYPT_SALT_ROUNDS = 12;
 
-/** Vigencia del token de verificación de correo (24 horas) */
-export const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * Vigencia del código de verificación de correo (30 minutos). Se acortó al
+ * pasar de un token largo (32 bytes al azar) a un código corto de 6 dígitos
+ * pensado para copiar/pegar a mano — con mucha menos entropía, una ventana
+ * de validez corta importa más para que no quede tiempo de adivinarlo
+ * (ver también el throttle de POST /auth/verify-email).
+ */
+export const EMAIL_VERIFICATION_TOKEN_TTL_MS = 30 * 60 * 1000;
 
-/** Vigencia del token de recuperación de contraseña (1 hora) */
-export const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+/** Vigencia del código de recuperación de contraseña (15 minutos) — mismo motivo que arriba. */
+export const PASSWORD_RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
