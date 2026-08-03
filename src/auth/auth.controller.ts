@@ -114,7 +114,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Solicitar recuperación de contraseña' })
   @ApiOkResponseData()
   forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
+    return this.authService.forgotPassword(dto.email, dto.platform);
   }
 
   @Public()
@@ -157,6 +157,6 @@ export class AuthController {
   @ApiOperation({ summary: 'Reenviar correo de verificación' })
   @ApiOkResponseData()
   resendVerification(@Body() dto: ResendVerificationDto) {
-    return this.authService.resendVerification(dto.email);
+    return this.authService.resendVerification(dto.email, dto.platform);
   }
 }

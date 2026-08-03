@@ -80,7 +80,7 @@ export class AuthService {
       },
     });
 
-    await this.mailService.sendVerificationEmail(user, token);
+    await this.mailService.sendVerificationEmail(user, token, dto.platform !== 'mobile');
 
     return {
       user: this.toSafeUser(user),
@@ -139,7 +139,7 @@ export class AuthService {
       return created;
     });
 
-    await this.mailService.sendVerificationEmail(user, token);
+    await this.mailService.sendVerificationEmail(user, token, dto.platform !== 'mobile');
 
     return {
       user: this.toSafeUser(user),
@@ -247,7 +247,7 @@ export class AuthService {
   // CONTRASEÑAS
   // --------------------------------------------------------------------
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, platform?: 'web' | 'mobile') {
     const user = await this.prisma.user.findUnique({ where: { email } });
     let token: string | undefined;
     if (user) {
@@ -259,7 +259,7 @@ export class AuthService {
         where: { id: user.id },
         data: { passwordResetToken: generated.token, passwordResetExpiresAt: generated.expiresAt },
       });
-      await this.mailService.sendPasswordResetEmail(user, generated.token);
+      await this.mailService.sendPasswordResetEmail(user, generated.token, platform !== 'mobile');
     }
     // Respuesta genérica: no revela si el correo existe (evita user enumeration).
     return {
@@ -339,7 +339,7 @@ export class AuthService {
     return { message: 'Correo verificado correctamente. Ya puedes iniciar sesión.' };
   }
 
-  async resendVerification(email: string) {
+  async resendVerification(email: string, platform?: 'web' | 'mobile') {
     const user = await this.prisma.user.findUnique({ where: { email } });
     let token: string | undefined;
     if (user && !user.emailVerifiedAt) {
@@ -355,7 +355,7 @@ export class AuthService {
           emailVerificationExpiresAt: generated.expiresAt,
         },
       });
-      await this.mailService.sendVerificationEmail(user, generated.token);
+      await this.mailService.sendVerificationEmail(user, generated.token, platform !== 'mobile');
     }
     return {
       message:

@@ -54,30 +54,30 @@ export class MailService {
   }
 
   /**
-   * Incluye el token tanto en el link (para quien abra el correo desde la
-   * web, donde `${webAppUrl}/verificar-email` lo valida solo) como en texto
-   * plano aparte (para quien esté en la app móvil, que no tiene forma de
-   * abrir ese link dentro de la app — debe copiar/pegar el código a mano en
-   * la pantalla de verificación).
+   * En web incluye el link (`${webAppUrl}/verificar-email` lo valida solo)
+   * además del código en texto plano. En móvil se manda SOLO el código —
+   * la app no puede abrir ese link dentro de sí misma (requeriría deep
+   * links), y mandar ambos generó confusión real: si el usuario abre el
+   * link desde el correo, el token se consume ahí, y al volver a la app a
+   * pegar el mismo código este ya no es válido ("expiró" sin haber
+   * expirado por tiempo, solo porque ya se usó).
    */
-  async sendVerificationEmail(user: MailUser, token: string): Promise<void> {
-    const link = `${this.webAppUrl}/verificar-email?token=${token}`;
-    await this.dispatch(
-      user.email,
-      'Verifica tu correo — AgroLink Honduras',
-      `Hola ${user.name}, activa tu cuenta aquí: ${link}\n\n` +
-        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de verificación:\n${token}`,
-    );
+  async sendVerificationEmail(user: MailUser, token: string, includeLink = true): Promise<void> {
+    const body = includeLink
+      ? `Hola ${user.name}, activa tu cuenta aquí: ${this.webAppUrl}/verificar-email?token=${token}\n\n` +
+        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de verificación:\n${token}`
+      : `Hola ${user.name}, tu código para activar tu cuenta es:\n${token}\n\n` +
+        `Ábrelo en la app y pégalo en la pantalla de verificación.`;
+    await this.dispatch(user.email, 'Verifica tu correo — AgroLink Honduras', body);
   }
 
-  async sendPasswordResetEmail(user: MailUser, token: string): Promise<void> {
-    const link = `${this.webAppUrl}/restablecer-password?token=${token}`;
-    await this.dispatch(
-      user.email,
-      'Recupera tu contraseña — AgroLink Honduras',
-      `Hola ${user.name}, restablece tu contraseña aquí: ${link}\n\n` +
-        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de restablecimiento:\n${token}`,
-    );
+  async sendPasswordResetEmail(user: MailUser, token: string, includeLink = true): Promise<void> {
+    const body = includeLink
+      ? `Hola ${user.name}, restablece tu contraseña aquí: ${this.webAppUrl}/restablecer-password?token=${token}\n\n` +
+        `¿Estás en la app móvil? Copia este código y pégalo en la pantalla de restablecimiento:\n${token}`
+      : `Hola ${user.name}, tu código para restablecer tu contraseña es:\n${token}\n\n` +
+        `Ábrelo en la app y pégalo en la pantalla de restablecimiento.`;
+    await this.dispatch(user.email, 'Recupera tu contraseña — AgroLink Honduras', body);
   }
 
   /** Aviso al equipo (bandeja de administración) de que un vendedor envió

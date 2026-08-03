@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
+  IsIn,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -98,4 +99,10 @@ export class RegisterSellerDto {
   @IsOptional()
   @IsUrl()
   lifeProofUrl?: string;
+
+  // Ver RegisterBuyerDto#platform.
+  @ApiPropertyOptional({ enum: ['web', 'mobile'], default: 'web' })
+  @IsOptional()
+  @IsIn(['web', 'mobile'])
+  platform?: 'web' | 'mobile';
 }
