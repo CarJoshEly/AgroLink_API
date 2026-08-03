@@ -38,13 +38,13 @@ export class ReviewsController {
     return this.reviewsService.listProductReviews(query);
   }
 
-  @Get('products/pending')
+  @Get('products/moderation')
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cola de moderación de reseñas de producto (admin)' })
+  @ApiOperation({ summary: 'Listar reseñas de producto para moderación (admin) — se publican solas, esto es para retirar las que incumplan las normas' })
   @ApiOkResponseData()
-  listPendingProductReviews(@Query() query: PaginationDto) {
-    return this.reviewsService.listPendingProductReviews(query);
+  listProductReviewsForAdmin(@Query() query: PaginationDto) {
+    return this.reviewsService.listProductReviewsForAdmin(query);
   }
 
   @Public()
@@ -109,13 +109,13 @@ export class ReviewsController {
     return this.reviewsService.listSellerReviews(query);
   }
 
-  @Get('sellers/pending')
+  @Get('sellers/moderation')
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cola de moderación de reseñas de vendedor (admin)' })
+  @ApiOperation({ summary: 'Listar reseñas de vendedor para moderación (admin) — se publican solas, esto es para retirar las que incumplan las normas' })
   @ApiOkResponseData()
-  listPendingSellerReviews(@Query() query: PaginationDto) {
-    return this.reviewsService.listPendingSellerReviews(query);
+  listSellerReviewsForAdmin(@Query() query: PaginationDto) {
+    return this.reviewsService.listSellerReviewsForAdmin(query);
   }
 
   @Public()

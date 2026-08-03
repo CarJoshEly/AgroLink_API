@@ -3,7 +3,6 @@ import {
   OrderStatus,
   ProductStatus,
   ReportStatus,
-  ReviewModerationStatus,
   UserRole,
   VerificationStatus,
 } from '@prisma/client';
@@ -26,8 +25,8 @@ export class AdminStatsService {
       productsByStatus,
       ordersByStatus,
       deliveredRevenueAgg,
-      pendingProductReviews,
-      pendingSellerReviews,
+      totalProductReviews,
+      totalSellerReviews,
       reportsByStatus,
       finance,
     ] = await Promise.all([
@@ -41,8 +40,10 @@ export class AdminStatsService {
         where: { status: OrderStatus.DELIVERED },
         _sum: { totalAmount: true },
       }),
-      this.prisma.productReview.count({ where: { moderationStatus: ReviewModerationStatus.PENDING_REVIEW } }),
-      this.prisma.sellerReview.count({ where: { moderationStatus: ReviewModerationStatus.PENDING_REVIEW } }),
+      // Las reseñas se publican solas (ver reviews.service.ts) — ya no hay
+      // cola de pendientes, así que el dashboard reporta el volumen total.
+      this.prisma.productReview.count(),
+      this.prisma.sellerReview.count(),
       this.prisma.report.groupBy({ by: ['status'], _count: { _all: true } }),
       this.transactionsService.getAdminDashboard(),
     ]);
@@ -106,8 +107,8 @@ export class AdminStatsService {
         totalDeliveredRevenue: Number(deliveredRevenueAgg._sum.totalAmount ?? 0),
       },
       reviews: {
-        pendingProductReviews,
-        pendingSellerReviews,
+        totalProductReviews,
+        totalSellerReviews,
       },
       reports: {
         total: Object.values(byReportStatus).reduce((sum, n) => sum + n, 0),

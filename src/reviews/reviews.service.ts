@@ -55,6 +55,10 @@ export class ReviewsService {
         buyerId,
         rating: dto.rating,
         comment: dto.comment,
+        // Se publica de inmediato — ya no pasa por aprobación de admin
+        // (ver `moderateProductReview`, que sigue disponible para retirar
+        // una reseña después de publicada, no para aprobarla antes).
+        moderationStatus: ReviewModerationStatus.APPROVED,
       },
     });
 
@@ -93,6 +97,10 @@ export class ReviewsService {
         attentionScore: dto.attentionScore,
         trustScore: dto.trustScore,
         comment: dto.comment,
+        // Se publica de inmediato — ya no pasa por aprobación de admin
+        // (ver `moderateSellerReview`, que sigue disponible para retirar
+        // una reseña después de publicada, no para aprobarla antes).
+        moderationStatus: ReviewModerationStatus.APPROVED,
       },
     });
 
@@ -121,7 +129,6 @@ export class ReviewsService {
       data: {
         ...(dto.rating !== undefined ? { rating: dto.rating } : {}),
         ...(dto.comment !== undefined ? { comment: dto.comment } : {}),
-        moderationStatus: ReviewModerationStatus.PENDING_REVIEW,
       },
     });
   }
@@ -140,7 +147,6 @@ export class ReviewsService {
         ...(dto.attentionScore !== undefined ? { attentionScore: dto.attentionScore } : {}),
         ...(dto.trustScore !== undefined ? { trustScore: dto.trustScore } : {}),
         ...(dto.comment !== undefined ? { comment: dto.comment } : {}),
-        moderationStatus: ReviewModerationStatus.PENDING_REVIEW,
       },
     });
   }
@@ -249,33 +255,40 @@ export class ReviewsService {
   }
 
   // --------------------------------------------------------------------
-  // MODERACIÓN (ADMIN)
+  // MODERACIÓN (ADMIN) — las reseñas se publican solas al crearse; esto ya
+  // no es una cola de aprobación previa, es post-moderación: el admin puede
+  // revisar cualquier reseña (más reciente primero) y rechazar la que
+  // incumpla las normas con `moderate*Review`.
   // --------------------------------------------------------------------
 
-  async listPendingProductReviews(query: PaginationDto) {
-    const where = { moderationStatus: ReviewModerationStatus.PENDING_REVIEW };
+  async listProductReviewsForAdmin(query: PaginationDto) {
     const [data, total] = await Promise.all([
       this.prisma.productReview.findMany({
-        where,
         skip: query.skip,
         take: query.limit ?? 10,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          buyer: { select: { id: true, name: true } },
+          product: { select: { id: true, name: true } },
+        },
       }),
-      this.prisma.productReview.count({ where }),
+      this.prisma.productReview.count(),
     ]);
     return { data, total, page: query.page ?? 1, limit: query.limit ?? 10 };
   }
 
-  async listPendingSellerReviews(query: PaginationDto) {
-    const where = { moderationStatus: ReviewModerationStatus.PENDING_REVIEW };
+  async listSellerReviewsForAdmin(query: PaginationDto) {
     const [data, total] = await Promise.all([
       this.prisma.sellerReview.findMany({
-        where,
         skip: query.skip,
         take: query.limit ?? 10,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          buyer: { select: { id: true, name: true } },
+          seller: { select: { id: true, businessName: true } },
+        },
       }),
-      this.prisma.sellerReview.count({ where }),
+      this.prisma.sellerReview.count(),
     ]);
     return { data, total, page: query.page ?? 1, limit: query.limit ?? 10 };
   }
