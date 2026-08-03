@@ -24,7 +24,7 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Listar categorías' })
   @ApiOkResponseData()
   list(@Query() query: ListCategoriesQueryDto) {
-    return this.categoriesService.list(query.parentId);
+    return this.categoriesService.list(query.parentId, Boolean(query.includeInactive));
   }
 
   @Public()

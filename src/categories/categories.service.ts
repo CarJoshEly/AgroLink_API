@@ -11,9 +11,12 @@ export class CategoriesService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  list(parentId?: string) {
+  list(parentId?: string, includeInactive = false) {
     return this.prisma.category.findMany({
-      where: parentId ? { parentId } : undefined,
+      where: {
+        ...(parentId ? { parentId } : {}),
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       orderBy: { name: 'asc' },
     });
   }
