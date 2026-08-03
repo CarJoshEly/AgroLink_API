@@ -11,6 +11,7 @@ import {
   supabaseConfig,
   googleMapsConfig,
   mailConfig,
+  paypalConfig,
 } from './config';
 
 // Módulos
@@ -57,7 +58,7 @@ import { JwtAuthGuard, RolesGuard } from './common/guards';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig, mailConfig],
+      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig, googleMapsConfig, mailConfig, paypalConfig],
     }),
 
     // Rate Limiting global

@@ -19,10 +19,13 @@ export class StorageService {
   private readonly bucket: string;
 
   constructor(private readonly configService: ConfigService) {
-    const url = this.configService.get<string>('supabase.url');
-    const key = this.configService.get<string>('supabase.key');
+    const url = this.configService.get<string>('supabase.url') || 'https://placeholder.supabase.co';
+    const key = this.configService.get<string>('supabase.key') || 'placeholder-key';
     this.bucket = this.configService.get<string>('supabase.bucket') ?? 'data';
-    this.client = createClient(url ?? '', key ?? '');
+    if (!this.configService.get<string>('supabase.url')) {
+      this.logger.warn('SUPABASE_URL no configurado; almacenamiento de imágenes deshabilitado/placeholder.');
+    }
+    this.client = createClient(url, key);
   }
 
   validateImage(file?: Express.Multer.File): void {

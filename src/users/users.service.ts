@@ -338,7 +338,7 @@ export class UsersService {
   // --------------------------------------------------------------------
 
   private async transitionSeller(
-    seller: Prisma.SellerProfileGetPayload<{ include: { identityVerification: true; user: true } }>,
+    seller: any,
     adminId: string,
     newStatus: VerificationStatus,
     opts: {

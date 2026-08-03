@@ -67,7 +67,7 @@ export class OrdersService {
     }
 
     const orders = await this.prisma.$transaction(async (tx) => {
-      const created: Prisma.OrderGetPayload<{ include: { seller: true } }>[] = [];
+      const created: any[] = [];
       for (const [sellerId, items] of bySeller) {
         const orderItemsData = items.map((item) => {
           const unitPrice = Number(item.product.price);
@@ -88,6 +88,35 @@ export class OrdersService {
           },
           include: { seller: true },
         });
+
+        // Descontar stock y registrar movimiento de inventario inmediatamente
+        const movements: Prisma.InventoryMovementCreateManyInput[] = [];
+        for (const item of items) {
+          const product = item.product;
+          const previousStock = product.stock;
+          const newStock = previousStock - item.quantity;
+          const status =
+            newStock === 0 && product.status === ProductStatus.ACTIVE
+              ? ProductStatus.OUT_OF_STOCK
+              : product.status;
+
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stock: newStock, status },
+          });
+
+          movements.push({
+            productId: product.id,
+            type: InventoryMovementType.EXIT,
+            quantity: item.quantity,
+            previousStock,
+            newStock,
+            reason: `Compra realizada (Pedido ${order.id})`,
+            createdBy: buyerId,
+          });
+        }
+        await tx.inventoryMovement.createMany({ data: movements });
+
         await tx.orderStatusHistory.create({
           data: { orderId: order.id, fromStatus: null, toStatus: OrderStatus.PENDING, changedBy: buyerId },
         });
@@ -198,40 +227,6 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const products = await tx.product.findMany({
-        where: { id: { in: order.items.map((item) => item.productId) } },
-      });
-      const productById = new Map(products.map((p) => [p.id, p]));
-
-      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
-      for (const item of order.items) {
-        const product = productById.get(item.productId);
-        if (!product || item.quantity > product.stock) {
-          throw new BadRequestException(
-            `No hay suficiente stock de "${product?.name ?? item.productId}" para aceptar este pedido`,
-          );
-        }
-
-        const previousStock = product.stock;
-        const newStock = previousStock - item.quantity;
-        const status =
-          newStock === 0 && product.status === ProductStatus.ACTIVE
-            ? ProductStatus.OUT_OF_STOCK
-            : product.status;
-
-        await tx.product.update({ where: { id: product.id }, data: { stock: newStock, status } });
-        movements.push({
-          productId: product.id,
-          type: InventoryMovementType.EXIT,
-          quantity: item.quantity,
-          previousStock,
-          newStock,
-          reason: `Pedido ${order.id} aceptado`,
-          createdBy: actor.userId,
-        });
-      }
-      await tx.inventoryMovement.createMany({ data: movements });
-
       const result = await tx.order.update({
         where: { id },
         data: { status: OrderStatus.CONFIRMED, confirmedAt: new Date() },
@@ -265,6 +260,38 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: order.items.map((item) => item.productId) } },
+      });
+      const productById = new Map(products.map((p) => [p.id, p]));
+
+      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
+      for (const item of order.items) {
+        const product = productById.get(item.productId);
+        if (!product) continue;
+
+        const previousStock = product.stock;
+        const newStock = previousStock + item.quantity;
+        const status =
+          previousStock === 0 && product.status === ProductStatus.OUT_OF_STOCK
+            ? ProductStatus.ACTIVE
+            : product.status;
+
+        await tx.product.update({ where: { id: product.id }, data: { stock: newStock, status } });
+        movements.push({
+          productId: product.id,
+          type: InventoryMovementType.ENTRY,
+          quantity: item.quantity,
+          previousStock,
+          newStock,
+          reason: `Pedido ${order.id} rechazado por vendedor`,
+          createdBy: actor.userId,
+        });
+      }
+      if (movements.length > 0) {
+        await tx.inventoryMovement.createMany({ data: movements });
+      }
+
       const result = await tx.order.update({
         where: { id },
         data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
@@ -299,15 +326,13 @@ export class OrdersService {
   // --------------------------------------------------------------------
 
   /**
-   * A diferencia de `cancel()` (vendedor/admin, para pedidos ya CONFIRMED o
-   * PREPARING), esta es la única cancelación que puede iniciar el propio
-   * comprador — y solo mientras el pedido sigue PENDING, porque `accept()`
-   * es el paso que reserva stock: antes de eso no hay inventario que revertir.
+   * Permite al comprador cancelar su solicitud mientras sigue PENDING.
+   * Restaura el stock reservado en el momento del checkout.
    */
   async cancelMine(id: string, buyerId: string, dto: RejectOrderDto) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { seller: true },
+      include: { items: true, seller: true },
     });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     if (order.buyerId !== buyerId) {
@@ -318,6 +343,38 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: order.items.map((item) => item.productId) } },
+      });
+      const productById = new Map(products.map((p) => [p.id, p]));
+
+      const movements: Prisma.InventoryMovementCreateManyInput[] = [];
+      for (const item of order.items) {
+        const product = productById.get(item.productId);
+        if (!product) continue;
+
+        const previousStock = product.stock;
+        const newStock = previousStock + item.quantity;
+        const status =
+          previousStock === 0 && product.status === ProductStatus.OUT_OF_STOCK
+            ? ProductStatus.ACTIVE
+            : product.status;
+
+        await tx.product.update({ where: { id: product.id }, data: { stock: newStock, status } });
+        movements.push({
+          productId: product.id,
+          type: InventoryMovementType.ENTRY,
+          quantity: item.quantity,
+          previousStock,
+          newStock,
+          reason: `Pedido ${order.id} cancelado por comprador`,
+          createdBy: buyerId,
+        });
+      }
+      if (movements.length > 0) {
+        await tx.inventoryMovement.createMany({ data: movements });
+      }
+
       const result = await tx.order.update({
         where: { id },
         data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
