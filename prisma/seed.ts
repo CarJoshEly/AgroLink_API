@@ -139,25 +139,204 @@ async function batchCreate<T>(
 // DATOS GEOGRÁFICOS REALES DE HONDURAS
 // --------------------------------------------------------------------------
 
-const DEPARTMENTS: { name: string; code: string; municipalities: string[] }[] = [
-  { name: 'Atlántida', code: '01', municipalities: ['La Ceiba', 'Tela', 'Jutiapa', 'La Másica', 'Esparta', 'El Porvenir'] },
-  { name: 'Colón', code: '02', municipalities: ['Trujillo', 'Tocoa', 'Sonaguera', 'Bonito Oriental', 'Sabá'] },
-  { name: 'Comayagua', code: '03', municipalities: ['Comayagua', 'Siguatepeque', 'Ajuterique', 'La Libertad', 'Lejamaní'] },
-  { name: 'Copán', code: '04', municipalities: ['Santa Rosa de Copán', 'Copán Ruinas', 'Florida', 'Cabañas', 'Corquín'] },
-  { name: 'Cortés', code: '05', municipalities: ['San Pedro Sula', 'Puerto Cortés', 'Choloma', 'La Lima', 'Villanueva', 'Omoa'] },
-  { name: 'Choluteca', code: '06', municipalities: ['Choluteca', 'Pespire', 'San Marcos de Colón', 'El Triunfo', 'Namasigüe'] },
-  { name: 'El Paraíso', code: '07', municipalities: ['Yuscarán', 'Danlí', 'El Paraíso', 'Trojes', 'Alauca'] },
-  { name: 'Francisco Morazán', code: '08', municipalities: ['Distrito Central', 'Valle de Ángeles', 'Santa Lucía', 'San Juancito', 'Ojojona'] },
-  { name: 'Gracias a Dios', code: '09', municipalities: ['Puerto Lempira', 'Brus Laguna', 'Ahuas', 'Wampusirpi'] },
-  { name: 'Intibucá', code: '10', municipalities: ['La Esperanza', 'Intibucá', 'Jesús de Otoro', 'Yamaranguila'] },
-  { name: 'Islas de la Bahía', code: '11', municipalities: ['Roatán', 'Utila', 'Guanaja', 'José Santos Guardiola'] },
-  { name: 'La Paz', code: '12', municipalities: ['La Paz', 'Marcala', 'Cane', 'Guajiquiro'] },
-  { name: 'Lempira', code: '13', municipalities: ['Gracias', 'Erandique', 'La Iguala', 'Candelaria', 'San Marcos de Caiquín'] },
-  { name: 'Ocotepeque', code: '14', municipalities: ['Ocotepeque', 'Sinuapa', 'Santa Fe', 'Concepción'] },
-  { name: 'Olancho', code: '15', municipalities: ['Juticalpa', 'Catacamas', 'Campamento', 'Salamá', 'San Francisco de la Paz'] },
-  { name: 'Santa Bárbara', code: '16', municipalities: ['Santa Bárbara', 'Trinidad', 'San Nicolás', 'Ilama'] },
-  { name: 'Valle', code: '17', municipalities: ['Nacaome', 'San Lorenzo', 'Amapala', 'Aramecina'] },
-  { name: 'Yoro', code: '18', municipalities: ['Yoro', 'El Progreso', 'Olanchito', 'Morazán', 'Yoríto'] },
+// Lista oficial completa (298 municipios) — códigos administrativos del
+// Instituto Nacional de Estadística de Honduras. Antes solo traía 4-6
+// municipios "representativos" por departamento (85 en total); un vendedor
+// de cualquier otro municipio no tenía forma de registrarse.
+const DEPARTMENTS: { name: string; code: string; municipalities: [string, string][] }[] = [
+  {
+    name: 'Atlántida',
+    code: '01',
+    municipalities: [
+      ['0101', 'La Ceiba'], ['0102', 'El Porvenir'], ['0103', 'Esparta'], ['0104', 'Jutiapa'],
+      ['0105', 'La Masica'], ['0106', 'San Francisco'], ['0107', 'Tela'], ['0108', 'Arizona'],
+    ],
+  },
+  {
+    name: 'Colón',
+    code: '02',
+    municipalities: [
+      ['0201', 'Trujillo'], ['0202', 'Balfate'], ['0203', 'Iriona'], ['0204', 'Limón'],
+      ['0205', 'Sabá'], ['0206', 'Santa Fe'], ['0207', 'Santa Rosa de Aguán'], ['0208', 'Sonaguera'],
+      ['0209', 'Tocoa'], ['0210', 'Bonito Oriental'],
+    ],
+  },
+  {
+    name: 'Comayagua',
+    code: '03',
+    municipalities: [
+      ['0301', 'Comayagua'], ['0302', 'Ajuterique'], ['0303', 'El Rosario'], ['0304', 'Esquías'],
+      ['0305', 'Humuya'], ['0306', 'La Libertad'], ['0307', 'Lamaní'], ['0308', 'La Trinidad'],
+      ['0309', 'Lejamaní'], ['0310', 'Meámbar'], ['0311', 'Minas de Oro'], ['0312', 'Ojos de Agua'],
+      ['0313', 'San Jerónimo'], ['0314', 'San José de Comayagua'], ['0315', 'San José del Potrero'],
+      ['0316', 'San Luis'], ['0317', 'San Sebastián'], ['0318', 'Siguatepeque'],
+      ['0319', 'Villa de San Antonio'], ['0320', 'Las Lajas'], ['0321', 'Taulabé'],
+    ],
+  },
+  {
+    name: 'Copán',
+    code: '04',
+    municipalities: [
+      ['0401', 'Santa Rosa de Copán'], ['0402', 'Cabañas'], ['0403', 'Concepción'], ['0404', 'Copán Ruinas'],
+      ['0405', 'Corquín'], ['0406', 'Cucuyagua'], ['0407', 'Dolores'], ['0408', 'Dulce Nombre'],
+      ['0409', 'El Paraíso'], ['0410', 'Florida'], ['0411', 'La Jigua'], ['0412', 'La Unión'],
+      ['0413', 'Nueva Arcadia'], ['0414', 'San Agustín'], ['0415', 'San Antonio'], ['0416', 'San Jerónimo'],
+      ['0417', 'San José'], ['0418', 'San Juan de Opoa'], ['0419', 'San Nicolás'], ['0420', 'San Pedro'],
+      ['0421', 'Santa Rita'], ['0422', 'Trinidad de Copán'], ['0423', 'Veracruz'],
+    ],
+  },
+  {
+    name: 'Cortés',
+    code: '05',
+    municipalities: [
+      ['0501', 'San Pedro Sula'], ['0502', 'Choloma'], ['0503', 'Omoa'], ['0504', 'Pimienta'],
+      ['0505', 'Potrerillos'], ['0506', 'Puerto Cortés'], ['0507', 'San Antonio de Cortés'],
+      ['0508', 'San Francisco de Yojoa'], ['0509', 'San Manuel'], ['0510', 'Santa Cruz de Yojoa'],
+      ['0511', 'Villanueva'], ['0512', 'La Lima'],
+    ],
+  },
+  {
+    name: 'Choluteca',
+    code: '06',
+    municipalities: [
+      ['0601', 'Choluteca'], ['0602', 'Apacilagua'], ['0603', 'Concepción de María'], ['0604', 'Duyure'],
+      ['0605', 'El Corpus'], ['0606', 'El Triunfo'], ['0607', 'Marcovia'], ['0608', 'Morolica'],
+      ['0609', 'Namasigüe'], ['0610', 'Orocuina'], ['0611', 'Pespire'], ['0612', 'San Antonio de Flores'],
+      ['0613', 'San Isidro'], ['0614', 'San José'], ['0615', 'San Marcos de Colón'],
+      ['0616', 'Santa Ana de Yusguare'],
+    ],
+  },
+  {
+    name: 'El Paraíso',
+    code: '07',
+    municipalities: [
+      ['0701', 'Yuscarán'], ['0702', 'Alauca'], ['0703', 'Danlí'], ['0704', 'El Paraíso'],
+      ['0705', 'Güinope'], ['0706', 'Jacaleapa'], ['0707', 'Liure'], ['0708', 'Morocelí'],
+      ['0709', 'Oropolí'], ['0710', 'Potrerillos'], ['0711', 'San Antonio de Flores'], ['0712', 'San Lucas'],
+      ['0713', 'San Matías'], ['0714', 'Soledad'], ['0715', 'Teupasenti'], ['0716', 'Texiguat'],
+      ['0717', 'Vado Ancho'], ['0718', 'Yauyupe'], ['0719', 'Trojes'],
+    ],
+  },
+  {
+    name: 'Francisco Morazán',
+    code: '08',
+    municipalities: [
+      ['0801', 'Distrito Central'], ['0802', 'Alubarén'], ['0803', 'Cedros'], ['0804', 'Curarén'],
+      ['0805', 'El Porvenir'], ['0806', 'Guaimaca'], ['0807', 'La Libertad'], ['0808', 'La Venta'],
+      ['0809', 'Lepaterique'], ['0810', 'Maraita'], ['0811', 'Marale'], ['0812', 'Nueva Armenia'],
+      ['0813', 'Ojojona'], ['0814', 'Orica'], ['0815', 'Reitoca'], ['0816', 'Sabanagrande'],
+      ['0817', 'San Antonio de Oriente'], ['0818', 'San Buenaventura'], ['0819', 'San Ignacio'],
+      ['0820', 'San Juan de Flores'], ['0821', 'San Miguelito'], ['0822', 'Santa Ana'],
+      ['0823', 'Santa Lucía'], ['0824', 'Talanga'], ['0825', 'Tatumbla'], ['0826', 'Valle de Ángeles'],
+      ['0827', 'Villa de San Francisco'], ['0828', 'Vallecillo'],
+    ],
+  },
+  {
+    name: 'Gracias a Dios',
+    code: '09',
+    municipalities: [
+      ['0901', 'Puerto Lempira'], ['0902', 'Brus Laguna'], ['0903', 'Ahuas'],
+      ['0904', 'Juan Francisco Bulnes'], ['0905', 'Ramón Villeda Morales'], ['0906', 'Wampusirpe'],
+    ],
+  },
+  {
+    name: 'Intibucá',
+    code: '10',
+    municipalities: [
+      ['1001', 'La Esperanza'], ['1002', 'Camasca'], ['1003', 'Colomoncagua'], ['1004', 'Concepción'],
+      ['1005', 'Dolores'], ['1006', 'Intibucá'], ['1007', 'Jesús de Otoro'], ['1008', 'Magdalena'],
+      ['1009', 'Masaguara'], ['1010', 'San Antonio'], ['1011', 'San Isidro'], ['1012', 'San Juan'],
+      ['1013', 'San Marcos de la Sierra'], ['1014', 'San Miguel Guancapla'], ['1015', 'Santa Lucía'],
+      ['1016', 'Yamaranguila'], ['1017', 'San Francisco de Opalaca'],
+    ],
+  },
+  {
+    name: 'Islas de la Bahía',
+    code: '11',
+    municipalities: [
+      ['1101', 'Roatán'], ['1102', 'Guanaja'], ['1103', 'José Santos Guardiola'], ['1104', 'Utila'],
+    ],
+  },
+  {
+    name: 'La Paz',
+    code: '12',
+    municipalities: [
+      ['1201', 'La Paz'], ['1202', 'Aguanqueterique'], ['1203', 'Cabañas'], ['1204', 'Cane'],
+      ['1205', 'Chinacla'], ['1206', 'Guajiquiro'], ['1207', 'Lauterique'], ['1208', 'Marcala'],
+      ['1209', 'Mercedes de Oriente'], ['1210', 'Opatoro'], ['1211', 'San Antonio del Norte'],
+      ['1212', 'San José'], ['1213', 'San Juan'], ['1214', 'San Pedro de Tutule'], ['1215', 'Santa Ana'],
+      ['1216', 'Santa Elena'], ['1217', 'Santa María'], ['1218', 'Santiago de Puringla'], ['1219', 'Yarula'],
+    ],
+  },
+  {
+    name: 'Lempira',
+    code: '13',
+    municipalities: [
+      ['1301', 'Gracias'], ['1302', 'Belén'], ['1303', 'Candelaria'], ['1304', 'Cololaca'],
+      ['1305', 'Erandique'], ['1306', 'Gualcince'], ['1307', 'Guarita'], ['1308', 'La Campa'],
+      ['1309', 'La Iguala'], ['1310', 'Las Flores'], ['1311', 'La Unión'], ['1312', 'La Virtud'],
+      ['1313', 'Lepaera'], ['1314', 'Mapulaca'], ['1315', 'Piraera'], ['1316', 'San Andrés'],
+      ['1317', 'San Francisco'], ['1318', 'San Juan Guarita'], ['1319', 'San Manuel Colohete'],
+      ['1320', 'San Rafael'], ['1321', 'San Sebastián'], ['1322', 'Santa Cruz'], ['1323', 'Talgua'],
+      ['1324', 'Tambla'], ['1325', 'Tomalá'], ['1326', 'Valladolid'], ['1327', 'Virginia'],
+      ['1328', 'San Marcos de Caiquín'],
+    ],
+  },
+  {
+    name: 'Ocotepeque',
+    code: '14',
+    municipalities: [
+      ['1401', 'Nueva Ocotepeque'], ['1402', 'Belén Gualcho'], ['1403', 'Concepción'],
+      ['1404', 'Dolores Merendón'], ['1405', 'Fraternidad'], ['1406', 'La Encarnación'],
+      ['1407', 'La Labor'], ['1408', 'Lucerna'], ['1409', 'Mercedes'], ['1410', 'San Fernando'],
+      ['1411', 'San Francisco del Valle'], ['1412', 'San Jorge'], ['1413', 'San Marcos'],
+      ['1414', 'Santa Fe'], ['1415', 'Sensenti'], ['1416', 'Sinuapa'],
+    ],
+  },
+  {
+    name: 'Olancho',
+    code: '15',
+    municipalities: [
+      ['1501', 'Juticalpa'], ['1502', 'Campamento'], ['1503', 'Catacamas'], ['1504', 'Concordia'],
+      ['1505', 'Dulce Nombre de Culmí'], ['1506', 'El Rosario'], ['1507', 'Esquipulas del Norte'],
+      ['1508', 'Gualaco'], ['1509', 'Guarizama'], ['1510', 'Guata'], ['1511', 'Guayape'], ['1512', 'Jano'],
+      ['1513', 'La Unión'], ['1514', 'Mangulile'], ['1515', 'Manto'], ['1516', 'Salamá'],
+      ['1517', 'San Esteban'], ['1518', 'San Francisco de Becerra'], ['1519', 'San Francisco de la Paz'],
+      ['1520', 'Santa María del Real'], ['1521', 'Silca'], ['1522', 'Yocón'], ['1523', 'Patuca'],
+    ],
+  },
+  {
+    name: 'Santa Bárbara',
+    code: '16',
+    municipalities: [
+      ['1601', 'Santa Bárbara'], ['1602', 'Arada'], ['1603', 'Atima'], ['1604', 'Azacualpa'],
+      ['1605', 'Ceguaca'], ['1606', 'San José de las Colinas'], ['1607', 'Concepción del Norte'],
+      ['1608', 'Concepción del Sur'], ['1609', 'Chinda'], ['1610', 'El Níspero'], ['1611', 'Gualala'],
+      ['1612', 'Ilama'], ['1613', 'Macuelizo'], ['1614', 'Naranjito'], ['1615', 'Nuevo Celilac'],
+      ['1616', 'Petoa'], ['1617', 'Protección'], ['1618', 'Quimistán'], ['1619', 'San Francisco de Ojuera'],
+      ['1620', 'San Luis'], ['1621', 'San Marcos'], ['1622', 'San Nicolás'], ['1623', 'San Pedro Zacapa'],
+      ['1624', 'Santa Rita'], ['1625', 'San Vicente Centenario'], ['1626', 'Trinidad'], ['1627', 'Las Vegas'],
+      ['1628', 'Nueva Frontera'],
+    ],
+  },
+  {
+    name: 'Valle',
+    code: '17',
+    municipalities: [
+      ['1701', 'Nacaome'], ['1702', 'Alianza'], ['1703', 'Amapala'], ['1704', 'Aramecina'],
+      ['1705', 'Caridad'], ['1706', 'Goascorán'], ['1707', 'Langue'], ['1708', 'San Francisco de Coray'],
+      ['1709', 'San Lorenzo'],
+    ],
+  },
+  {
+    name: 'Yoro',
+    code: '18',
+    municipalities: [
+      ['1801', 'Yoro'], ['1802', 'Arenal'], ['1803', 'El Negrito'], ['1804', 'El Progreso'],
+      ['1805', 'Jocón'], ['1806', 'Morazán'], ['1807', 'Olanchito'], ['1808', 'Santa Rita'],
+      ['1809', 'Sulaco'], ['1810', 'Victoria'], ['1811', 'Yorito'],
+    ],
+  },
 ];
 
 // --------------------------------------------------------------------------
@@ -370,12 +549,12 @@ async function main() {
 
   DEPARTMENTS.forEach((d, di) => {
     const deptId = departmentRows[di].id;
-    d.municipalities.forEach((muniName, mi) => {
+    d.municipalities.forEach(([muniCode, muniName]) => {
       const id = uuid();
       municipalityRows.push({
         id,
         name: muniName,
-        code: `${d.code}-${String(mi + 1).padStart(2, '0')}`,
+        code: muniCode,
         departmentId: deptId,
       });
       municipalityRefs.push({ id, departmentId: deptId, name: muniName, departmentName: d.name });
