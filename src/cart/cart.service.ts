@@ -11,6 +11,11 @@ const CART_ITEM_PRODUCT_SELECT = {
   stock: true,
   status: true,
   images: { select: { url: true }, orderBy: { order: 'asc' as const }, take: 1 },
+  // Sin esto el frontend no puede agrupar el carrito por vendedor (cae
+  // siempre al fallback genérico "Productor / Vendedor AgroLink") ni
+  // mostrar si el vendedor está verificado antes de pagar.
+  sellerId: true,
+  seller: { select: { id: true, businessName: true, verificationStatus: true } },
 } as const;
 
 @Injectable()
