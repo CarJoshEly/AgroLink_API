@@ -31,7 +31,17 @@ export class TransactionsService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  /** Se invoca al entregar un pedido. No bloqueante: cualquier fallo se registra y se ignora. */
+  /**
+   * Se invoca al entregar un pedido que NO pasó por `recordCompletedPaypalPayment`
+   * (si ya tiene transacción de PayPal, el guard de abajo lo salta). Antes
+   * buscaba el método de pago "PayPal" para pedidos que, por definición, no
+   * se pagaron por PayPal — quedaban mal etiquetados en los reportes. Ahora
+   * usa "Otro". También nacía en PENDING, lo que dejaba "ganancia neta" en
+   * L.0 hasta que un admin la confirmara pedido por pedido a mano — nace
+   * COMPLETED directamente, entrega = venta liquidada.
+   *
+   * No bloqueante: cualquier fallo se registra y se ignora.
+   */
   async recordForDeliveredOrder(order: { id: string; totalAmount: Prisma.Decimal | number }): Promise<void> {
     try {
       const existing = await this.prisma.transaction.findUnique({ where: { orderId: order.id } });
@@ -43,7 +53,7 @@ export class TransactionsService {
         return;
       }
 
-      const paymentMethod = await this.findPaymentMethod(PaymentProvider.PAYPAL);
+      const paymentMethod = await this.findPaymentMethod(PaymentProvider.OTHER);
       if (!paymentMethod) {
         this.logger.warn(`No hay un método de pago activo; se omite transacción para pedido ${order.id}`);
         return;
@@ -52,6 +62,7 @@ export class TransactionsService {
       const amount = Number(order.totalAmount);
       const percentage = Number(commissionConfig.percentage);
       const commissionAmount = Number(((amount * percentage) / 100).toFixed(2));
+      const now = new Date();
 
       await this.prisma.transaction.create({
         data: {
@@ -60,7 +71,8 @@ export class TransactionsService {
           amount,
           commissionPercentage: percentage,
           commissionAmount,
-          status: TransactionStatus.PENDING,
+          status: TransactionStatus.COMPLETED,
+          completedAt: now,
         },
       });
     } catch (error) {

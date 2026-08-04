@@ -38,23 +38,27 @@ describe('TransactionsService', () => {
   describe('recordForDeliveredOrder', () => {
     const order = { id: 'order-1', totalAmount: 1000 };
 
-    it('crea la transacción PENDING con la comisión calculada del porcentaje activo', async () => {
+    it('crea la transacción COMPLETED (método "Otro") con la comisión calculada del porcentaje activo', async () => {
       prisma.transaction.findUnique.mockResolvedValue(null);
       commissionConfigService.getCurrent.mockResolvedValue({ percentage: 10 });
       prisma.paymentMethod.findFirst
-        .mockResolvedValueOnce({ id: 'pm-paypal', provider: PaymentProvider.PAYPAL } as any);
+        .mockResolvedValueOnce({ id: 'pm-other', provider: PaymentProvider.OTHER } as any);
       prisma.transaction.create.mockResolvedValue({} as any);
 
       await service.recordForDeliveredOrder(order);
 
+      expect(prisma.paymentMethod.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ provider: PaymentProvider.OTHER }) }),
+      );
       expect(prisma.transaction.create).toHaveBeenCalledWith({
         data: {
           orderId: 'order-1',
-          paymentMethodId: 'pm-paypal',
+          paymentMethodId: 'pm-other',
           amount: 1000,
           commissionPercentage: 10,
           commissionAmount: 100,
-          status: TransactionStatus.PENDING,
+          status: TransactionStatus.COMPLETED,
+          completedAt: expect.any(Date),
         },
       });
     });
