@@ -94,7 +94,14 @@ export class CartService {
     if (product.status !== ProductStatus.ACTIVE) {
       throw new BadRequestException(`El producto "${product.name}" no está disponible`);
     }
-    if (product.seller.verificationStatus !== VerificationStatus.VERIFIED) {
+    // A propósito NO exige seller.verificationStatus === VERIFIED — modelo
+    // estilo eBay, ver el comentario en products.service.ts#findMany. Un
+    // vendedor sin verificar (PENDING/UNDER_REVIEW/REJECTED) sí puede
+    // vender; el comprador ve el sello (o la falta de él) y decide. Pero
+    // SUSPENDED es una acción activa del admin (fraude, incumplimiento) —
+    // suspender no desactiva sus productos (ver `suspendSeller` en
+    // users.service.ts), así que hay que frenar la compra acá.
+    if (product.seller.verificationStatus === VerificationStatus.SUSPENDED) {
       throw new BadRequestException(`El producto "${product.name}" no está disponible actualmente`);
     }
     if (quantity > product.stock) {

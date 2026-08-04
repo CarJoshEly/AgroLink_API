@@ -70,7 +70,7 @@ describe('OrdersService', () => {
       await expect(service.checkout('buyer-1')).rejects.toThrow(BadRequestException);
     });
 
-    it('rechaza el checkout si el vendedor del producto no está verificado', async () => {
+    it('permite el checkout aunque el vendedor del producto no esté verificado (modelo estilo eBay)', async () => {
       prisma.cart.findFirst.mockResolvedValue({
         id: 'cart-1',
         items: [
@@ -86,6 +86,38 @@ describe('OrdersService', () => {
               sellerId: 's1',
               price: 100,
               seller: { verificationStatus: VerificationStatus.PENDING },
+            },
+          },
+        ],
+      } as any);
+      prisma.order.create.mockResolvedValue({
+        id: 'order-1',
+        sellerId: 's1',
+        totalAmount: 100,
+        seller: { userId: 'user-s1' },
+      } as any);
+      prisma.orderStatusHistory.create.mockResolvedValue({} as any);
+      prisma.cart.update.mockResolvedValue({} as any);
+
+      await expect(service.checkout('buyer-1')).resolves.toBeDefined();
+    });
+
+    it('rechaza el checkout si el vendedor está SUSPENDED', async () => {
+      prisma.cart.findFirst.mockResolvedValue({
+        id: 'cart-1',
+        items: [
+          {
+            productId: 'p1',
+            quantity: 1,
+            product: {
+              id: 'p1',
+              name: 'Maíz',
+              stock: 10,
+              status: ProductStatus.ACTIVE,
+              deletedAt: null,
+              sellerId: 's1',
+              price: 100,
+              seller: { verificationStatus: VerificationStatus.SUSPENDED },
             },
           },
         ],
