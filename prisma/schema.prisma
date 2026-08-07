@@ -101,10 +101,15 @@ enum NotificationType {
 /// A qué entidad navegar al tocar una notificación (deep link). Opcional a
 /// propósito — no todas las notificaciones tienen un destino navegable
 /// (p. ej. SELLER_APPROVED lleva a "mi verificación", que no necesita ID).
+/// REPORT es especial: no lleva a la entidad reportada (un reporte de tipo
+/// REVIEW no tiene ni dónde — ver `ReportTargetType`), sino al panel de
+/// moderación de reportes del admin (`targetId` = el `Report.id`, útil para
+/// auditoría aunque la UI actual no salte a uno en particular).
 enum NotificationTargetType {
   ORDER
   PRODUCT
   SELLER
+  REPORT
 }
 
 enum PaymentProvider {

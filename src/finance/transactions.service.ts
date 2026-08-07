@@ -1,5 +1,12 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { NotificationType, PaymentProvider, Prisma, TransactionStatus, UserRole } from '@prisma/client';
+import {
+  NotificationTargetType,
+  NotificationType,
+  PaymentProvider,
+  Prisma,
+  TransactionStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
 import { AuditLogService } from '../audit';
@@ -194,6 +201,7 @@ export class TransactionsService {
       NotificationType.PAYMENT_UPDATE,
       'Actualización de pago',
       `El pago de tu pedido #${transaction.order.id} cambió a estado ${dto.status}.`,
+      { targetType: NotificationTargetType.ORDER, targetId: transaction.order.id },
     );
 
     return updated;

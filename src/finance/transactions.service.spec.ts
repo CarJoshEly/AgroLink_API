@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PaymentProvider, TransactionStatus, UserRole } from '@prisma/client';
+import { NotificationTargetType, PaymentProvider, TransactionStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
 import { AuditLogService } from '../audit';
@@ -114,6 +114,7 @@ describe('TransactionsService', () => {
         expect.any(String),
         expect.any(String),
         expect.stringContaining('order-1'),
+        { targetType: NotificationTargetType.ORDER, targetId: 'order-1' },
       );
     });
   });

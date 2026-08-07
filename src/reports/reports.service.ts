@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, Prisma, ReportTargetType, UserRole } from '@prisma/client';
+import { NotificationTargetType, NotificationType, Prisma, ReportTargetType, UserRole } from '@prisma/client';
 import { PrismaService } from '../database';
 import { NotificationsService } from '../notifications';
 import { AuditLogService } from '../audit';
@@ -34,6 +34,10 @@ export class ReportsService {
       NotificationType.REPORT_RECEIVED,
       'Nuevo reporte recibido',
       `Se ha recibido un reporte sobre ${dto.targetType}: ${dto.reason}`,
+      // No hay un NotificationTargetType por cada ReportTargetType (p. ej.
+      // REVIEW no tiene dónde navegar) — el destino útil para el admin
+      // siempre es el panel de moderación, no la entidad reportada.
+      { targetType: NotificationTargetType.REPORT, targetId: report.id },
     );
 
     return report;
