@@ -23,6 +23,7 @@ import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
   ForgotPasswordDto,
+  GoogleAuthDto,
   LoginDto,
   LogoutDto,
   RefreshTokenDto,
@@ -65,6 +66,16 @@ export class AuthController {
   @ApiOkResponseData()
   login(@Body() dto: LoginDto, @Headers('user-agent') userAgent: string, @Ip() ip: string) {
     return this.authService.login(dto, { userAgent, ipAddress: ip });
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Continuar con Google (crea la cuenta de comprador si no existe, o inicia sesión)' })
+  @ApiOkResponseData()
+  googleAuth(@Body() dto: GoogleAuthDto, @Headers('user-agent') userAgent: string, @Ip() ip: string) {
+    return this.authService.googleAuth(dto.idToken, { userAgent, ipAddress: ip });
   }
 
   @Public()

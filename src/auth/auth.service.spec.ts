@@ -3,6 +3,7 @@ import { ConflictException, ForbiddenException, Logger, UnauthorizedException } 
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
+import { OAuth2Client } from 'google-auth-library';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../database';
 import { MailService } from '../mail';
@@ -185,6 +186,101 @@ describe('AuthService', () => {
           lifeProofUrl: 'https://x/4.jpg',
         } as any),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('googleAuth', () => {
+    const idToken = 'valid-google-id-token';
+    let verifyIdTokenSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      verifyIdTokenSpy = jest.spyOn(OAuth2Client.prototype, 'verifyIdToken');
+    });
+
+    afterEach(() => verifyIdTokenSpy.mockRestore());
+
+    function mockPayload(overrides: Record<string, unknown> = {}) {
+      verifyIdTokenSpy.mockResolvedValue({
+        getPayload: () => ({
+          email: 'nuevo@example.com',
+          email_verified: true,
+          sub: 'google-sub-1',
+          name: 'Nuevo Usuario',
+          picture: 'https://example.com/foto.jpg',
+          ...overrides,
+        }),
+      } as any);
+    }
+
+    it('crea una cuenta CUSTOMER nueva si el correo no existe', async () => {
+      mockPayload();
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        ...baseUser,
+        id: 'new-user',
+        email: 'nuevo@example.com',
+        googleId: 'google-sub-1',
+        passwordHash: null,
+      } as any);
+      prisma.refreshToken.create.mockResolvedValue({} as any);
+
+      const result = await service.googleAuth(idToken, meta);
+
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            role: UserRole.CUSTOMER,
+            googleId: 'google-sub-1',
+            email: 'nuevo@example.com',
+          }),
+        }),
+      );
+      expect(result.accessToken).toBe('signed-jwt');
+      expect(result.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('vincula la cuenta existente (mismo correo, sin googleId) en vez de duplicarla', async () => {
+      mockPayload({ email: baseUser.email });
+      prisma.user.findUnique.mockResolvedValue({ ...baseUser, googleId: null } as any);
+      prisma.user.update.mockResolvedValue({ ...baseUser, googleId: 'google-sub-1' } as any);
+      prisma.refreshToken.create.mockResolvedValue({} as any);
+
+      await service.googleAuth(idToken, meta);
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: baseUser.id },
+          data: expect.objectContaining({ googleId: 'google-sub-1' }),
+        }),
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('solo inicia sesión (sin update ni create) si el correo ya tenía googleId vinculado', async () => {
+      mockPayload({ email: baseUser.email });
+      prisma.user.findUnique.mockResolvedValue({ ...baseUser, googleId: 'google-sub-1' } as any);
+      prisma.refreshToken.create.mockResolvedValue({} as any);
+
+      await service.googleAuth(idToken, meta);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si el correo de Google no está verificado', async () => {
+      mockPayload({ email_verified: false });
+      await expect(service.googleAuth(idToken, meta)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rechaza si el token de Google no es válido', async () => {
+      verifyIdTokenSpy.mockRejectedValue(new Error('token inválido'));
+      await expect(service.googleAuth(idToken, meta)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rechaza si la cuenta con ese correo está desactivada', async () => {
+      mockPayload({ email: baseUser.email });
+      prisma.user.findUnique.mockResolvedValue({ ...baseUser, isActive: false } as any);
+      await expect(service.googleAuth(idToken, meta)).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -11,6 +11,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserRole } from '@prisma/client';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../database';
@@ -47,6 +48,7 @@ function parseDurationMs(duration: string): number {
 @Injectable()
 export class AuthService {
   private readonly securityLogger = new Logger('Security');
+  private readonly googleClient = new OAuth2Client();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -170,10 +172,77 @@ export class AuthService {
       throw new ForbiddenException('Debes verificar tu correo antes de iniciar sesión');
     }
 
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        'Esta cuenta se creó con Google. Inicia sesión con el botón de Google, o usa "Olvidé mi contraseña" para crear una.',
+      );
+    }
     const passwordMatches = await this.comparePassword(dto.password, user.passwordHash);
     if (!passwordMatches) {
       this.securityLogger.warn(`Contraseña incorrecta para ${dto.email} — ip=${meta.ipAddress}`);
       throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const tokens = await this.issueTokens(user, meta);
+    return { user: this.toSafeUser(user), ...tokens };
+  }
+
+  /**
+   * "Continuar con Google" — sirve tanto para registrar como para iniciar
+   * sesión con la MISMA llamada: si el correo (verificado por Google) ya
+   * existe, entra a esa cuenta (vinculándola si aún no tenía `googleId`);
+   * si no existe, crea una cuenta CUSTOMER nueva. Solo comprador — un
+   * vendedor necesita teléfono/DNI/ubicación que Google no da, así que
+   * sigue usando `registerSeller`. El ID token ya lo firmó Google, así que
+   * no hace falta contraseña ni verificar el correo aparte.
+   */
+  async googleAuth(idToken: string, meta: RequestMeta) {
+    const clientId = this.configService.get<string>('googleAuth.clientId');
+    if (!clientId) {
+      throw new InternalServerErrorException('El inicio de sesión con Google no está configurado');
+    }
+
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({ idToken, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Token de Google inválido o expirado');
+    }
+
+    if (!payload?.email) {
+      throw new UnauthorizedException('Token de Google inválido');
+    }
+    if (!payload.email_verified) {
+      throw new UnauthorizedException('Tu cuenta de Google no tiene el correo verificado');
+    }
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: payload.email },
+      include: { sellerProfile: true },
+    });
+
+    if (user) {
+      if (!user.isActive) throw new ForbiddenException('Tu cuenta ha sido desactivada');
+      if (!user.googleId) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { googleId: payload.sub, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+          include: { sellerProfile: true },
+        });
+      }
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          name: payload.name ?? payload.email.split('@')[0],
+          email: payload.email,
+          avatarUrl: payload.picture,
+          googleId: payload.sub,
+          role: UserRole.CUSTOMER,
+          emailVerifiedAt: new Date(),
+        },
+        include: { sellerProfile: true },
+      });
     }
 
     const tokens = await this.issueTokens(user, meta);
@@ -239,7 +308,7 @@ export class AuthService {
   /** Verifica la contraseña de un usuario (reutilizado por otros módulos, p. ej. para confirmar la eliminación de una cuenta). */
   async verifyPassword(userId: string, password: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return false;
+    if (!user || !user.passwordHash) return false;
     return this.comparePassword(password, user.passwordHash);
   }
 
@@ -298,6 +367,11 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Esta cuenta no tiene contraseña todavía (se creó con Google) — usa "Olvidé mi contraseña" para crear una.',
+      );
+    }
     const matches = await this.comparePassword(dto.currentPassword, user.passwordHash);
     if (!matches) throw new UnauthorizedException('La contraseña actual no es correcta');
 

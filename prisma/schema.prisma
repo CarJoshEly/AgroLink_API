@@ -185,7 +185,14 @@ model User {
   email        String     @unique
   phone        String?
   avatarUrl    String?
-  passwordHash String
+  // Nulo para cuentas creadas por "Continuar con Google" que nunca
+  // establecieron una contraseña propia (pueden hacerlo después vía
+  // "Olvidé mi contraseña", que sí les asigna una).
+  passwordHash String?
+  // `sub` de Google — solo lo tienen las cuentas que iniciaron sesión (o se
+  // vincularon) con Google. Único porque un `sub` de Google identifica una
+  // sola cuenta real, nunca debería repetirse entre dos usuarios nuestros.
+  googleId     String?    @unique
   role         UserRole
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
