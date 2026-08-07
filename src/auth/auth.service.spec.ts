@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
@@ -187,6 +193,44 @@ describe('AuthService', () => {
         } as any),
       ).rejects.toThrow(ConflictException);
     });
+
+    // Cobertura de wiring: la lógica en sí de "contraseña insegura" la cubre
+    // a fondo `assertPasswordIsSafe` en common/utils/index.spec.ts — acá
+    // solo se confirma que AuthService de verdad la llama antes de crear al
+    // usuario, con BadRequestException propagándose sin transformarse.
+    it('rechaza el registro de comprador si la contraseña contiene el nombre del usuario', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.registerBuyer({
+          name: 'Roberto Cruz',
+          email: 'roberto@example.com',
+          password: 'Roberto2024!',
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza el registro de vendedor si la contraseña es demasiado común', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.registerSeller({
+          name: 'Ana López',
+          email: 'ana@example.com',
+          phone: '99887766',
+          password: 'Password1!',
+          businessName: 'Finca X',
+          dni: '0801-1995-04521',
+          departmentId: 'dep-1',
+          municipalityId: 'mun-1',
+          address: 'Barrio El Centro',
+          latitude: 14.07,
+          longitude: -87.19,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.sellerProfile.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe('googleAuth', () => {
@@ -311,6 +355,16 @@ describe('AuthService', () => {
         data: { revokedAt: expect.any(Date) },
       });
       expect(result.message).toBeDefined();
+    });
+
+    it('rechaza el cambio si la nueva contraseña contiene el correo del usuario', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser as any);
+      bcryptMock.compare.mockResolvedValue(true as never);
+
+      await expect(
+        service.changePassword(baseUser.id, { currentPassword: 'Segura123', newPassword: 'Maria2024!' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 

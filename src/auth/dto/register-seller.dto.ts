@@ -14,6 +14,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { SanitizeHtml } from '../../common/decorators';
+import { PASSWORD_MIN_LENGTH, STRONG_PASSWORD_MESSAGE, STRONG_PASSWORD_REGEX } from '../../common/constants';
 
 // DTO independiente (no extiende RegisterBuyerDto): a diferencia del
 // comprador, el teléfono es obligatorio para vendedores, y mezclar
@@ -36,12 +37,10 @@ export class RegisterSellerDto {
   @IsNotEmpty({ message: 'El teléfono es obligatorio para vendedores' })
   phone: string;
 
-  @ApiProperty({ example: 'Segura123' })
+  @ApiProperty({ example: 'Segura#123' })
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
-    message: 'La contraseña debe contener al menos una letra y un número',
-  })
+  @MinLength(PASSWORD_MIN_LENGTH, { message: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres` })
+  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
   password: string;
 
   @ApiProperty({ example: 'Finca Fernández' })

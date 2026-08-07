@@ -21,6 +21,7 @@ import {
   EMAIL_VERIFICATION_TOKEN_TTL_MS,
   PASSWORD_RESET_TOKEN_TTL_MS,
 } from '../common/constants';
+import { assertPasswordIsSafe } from '../common/utils';
 import { JwtPayload } from '../common/interfaces';
 import {
   ChangePasswordDto,
@@ -63,6 +64,7 @@ export class AuthService {
 
   async registerBuyer(dto: RegisterBuyerDto) {
     await this.assertEmailAvailable(dto.email);
+    assertPasswordIsSafe(dto.password, [dto.name, dto.email]);
 
     const passwordHash = await this.hashPassword(dto.password);
     const { token, expiresAt } = await this.generateUniqueCode(
@@ -93,6 +95,7 @@ export class AuthService {
 
   async registerSeller(dto: RegisterSellerDto) {
     await this.assertEmailAvailable(dto.email);
+    assertPasswordIsSafe(dto.password, [dto.name, dto.email, dto.businessName]);
 
     const existingDni = await this.prisma.sellerProfile.findUnique({ where: { dni: dto.dni } });
     if (existingDni) {
@@ -349,6 +352,7 @@ export class AuthService {
     ) {
       throw new BadRequestException('Token de recuperación inválido o expirado');
     }
+    assertPasswordIsSafe(dto.newPassword, [user.name, user.email]);
 
     const passwordHash = await this.hashPassword(dto.newPassword);
     await this.prisma.user.update({
@@ -374,6 +378,7 @@ export class AuthService {
     }
     const matches = await this.comparePassword(dto.currentPassword, user.passwordHash);
     if (!matches) throw new UnauthorizedException('La contraseña actual no es correcta');
+    assertPasswordIsSafe(dto.newPassword, [user.name, user.email]);
 
     const passwordHash = await this.hashPassword(dto.newPassword);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });

@@ -50,3 +50,24 @@ export const EMAIL_VERIFICATION_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 /** Vigencia del código de recuperación de contraseña (15 minutos) — mismo motivo que arriba. */
 export const PASSWORD_RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Política de contraseña — compartida por los 4 DTOs que establecen una
+ * (registro comprador/vendedor, reset, cambio) para que la regla sea
+ * idéntica en los cuatro lugares en vez de 4 regex copiadas a mano. El
+ * regex cubre lo que un `@Matches` puede validar solo (longitud + juego de
+ * caracteres); lo que necesita contexto — que no contenga el nombre/correo
+ * del usuario, ni sea una contraseña común — vive en
+ * `assertPasswordIsSafe` (`common/utils`), llamado aparte desde
+ * `AuthService` porque ahí sí se conoce al usuario.
+ */
+export const PASSWORD_MIN_LENGTH = 10;
+
+/** minúscula + mayúscula + número + carácter especial, largo mínimo `PASSWORD_MIN_LENGTH`. */
+export const STRONG_PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}$/;
+
+export const STRONG_PASSWORD_MESSAGE =
+  'La contraseña debe tener al menos 10 caracteres e incluir mayúsculas, minúsculas, números y un carácter especial (ej. !@#$%&*)';
+
+export * from './weak-passwords';
